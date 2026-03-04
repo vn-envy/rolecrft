@@ -475,12 +475,25 @@
         const [analysisHistory, setAnalysisHistory] = useState([]); // localStorage history
         const [userAddedSkills, setUserAddedSkills] = useState([]); // skills user toggled on from ATS missing list
         const [completedActions, setCompletedActions] = useState(new Set()); // action indices toggled for score sim
-        const [showHero, setShowHero] = useState(true); // landing page hero animation
+        const [showHero, setShowHero] = useState(true);
+        const [appMode, setAppMode] = useState('analysis'); // 'analysis' | 'pathfinder'
+        const [pfStep, setPfStep] = useState(1);
+        const [pfRole, setPfRole] = useState('');
+        const [pfYoE, setPfYoE] = useState('');
+        const [pfLinkedIn, setPfLinkedIn] = useState('');
+        const [pfMessages, setPfMessages] = useState([]);
+        const [pfQuestion, setPfQuestion] = useState(null); // {question, options}
+        const [pfSelected, setPfSelected] = useState(null);
+        const [pfMatches, setPfMatches] = useState([]);
+        const [pfLoading, setPfLoading] = useState(false);
+ // landing page hero animation
         const [showGuide, setShowGuide] = useState(true); // user guide in step 4
         const [theme, setTheme] = useState(() => {
           try { return localStorage.getItem('rt_theme') || 'dark'; } catch(e) { return 'dark'; }
         });
         const toggleTheme = () => setTheme(t => (t === 'dark' ? 'light' : 'dark'));
+
+        const [resumeSource, setResumeSource] = useState('resume'); // 'resume' | 'linkedin'
 
         const [formData, setFormData] = useState({
           currentResume: '',
@@ -626,7 +639,7 @@
 
         // ─── API call with per-stage config ──────────────────────
 
-        const callAPI = async (prompt, { temperature = 0.2, max_tokens = 4096, retries = 2 } = {}) => {
+        const callAPI = async (prompt, { temperature = 0.2, max_tokens = 4096, retries = 2, model = 'qwen/qwen3-32b' } = {}) => {
           const fullPrompt = prompt + '\n\nCRITICAL: Output must be a single valid JSON object starting with "{" and ending with "}". No text before or after. No markdown fences.';
 
           for (let i = 0; i <= retries; i++) {
@@ -634,7 +647,7 @@
               const res = await fetch("/.netlify/functions/transform", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: fullPrompt, temperature, max_tokens })
+                body: JSON.stringify({ prompt: fullPrompt, temperature, max_tokens, model })
               });
               const text = await res.text();
               let data;
@@ -861,7 +874,7 @@ Return ONLY valid JSON:
   "sourcedFrom": "${hasLiveData ? 'web_search' : 'training_knowledge'}"
 }`;
 
-            const companyRaw = await callAPI(companyPrompt, { temperature: 0.15, max_tokens: 3000 });
+            const companyRaw = await callAPI(companyPrompt, { temperature: 0.15, max_tokens: 3000, model: 'openai/gpt-oss-120b' });
             let companyData = validateCompanyData(parseJSON(companyRaw));
             const sourceLabel = companyData.sourcedFrom === 'web_search' ? 'via live search' : 'via AI knowledge';
             updateStage(0, { status: 'done', detail: `${companyData.techStack.length} technologies, ${companyData.coreValues.length} values (${sourceLabel})` });
@@ -887,7 +900,7 @@ Extract patterns and return ONLY valid JSON:
   "winningPhrases": ["phrase from JD that should be echoed in resume"]
 }`;
 
-            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000 });
+            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'qwen/qwen3-32b' });
             let jdData = validateJDData(parseJSON(jdRaw));
             updateStage(1, { status: 'done', detail: `${jdData.mandatorySkills.length} required skills, ${jdData.niceToHave.length} nice-to-haves` });
 
@@ -1143,7 +1156,7 @@ Return ONLY valid JSON:
   }
 }`;
 
-            const resumeRaw = await callAPI(resumePrompt, { temperature: 0.25, max_tokens: 7500 });
+            const resumeRaw = await callAPI(resumePrompt, { temperature: 0.25, max_tokens: 7500, model: 'qwen/qwen3-32b' });
             let resumeData = parseJSON(resumeRaw);
             if (!resumeData.resume) throw new Error("Resume generation returned invalid structure");
             const stats = resumeData.preservationStats || {};
@@ -1224,7 +1237,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const starRaw = await callAPI(starPrompt, { temperature: 0.35, max_tokens: 5000 });
+            const starRaw = await callAPI(starPrompt, { temperature: 0.35, max_tokens: 5000, model: 'qwen/qwen3-32b' });
             let starData = parseJSON(starRaw);
             updateStage(3, { status: 'done', detail: `${starData.stories?.length || 0} stories generated` });
 
@@ -1838,7 +1851,8 @@ ${companiesSection}
           setTimeout(() => setFeedbackToast(false), 3500);
         };
 
-        const canSubmit = formData.currentResume.length > 50 && formData.targetCompany.length > 1 && formData.targetRole.length > 2 && formData.yearsExperience && formData.primaryJD.length > 50;
+        const resumeMin = (resumeSource === 'linkedin') ? 20 : 50;
+        const canSubmit = formData.currentResume.length > resumeMin && formData.targetCompany.length > 1 && formData.targetRole.length > 2 && formData.yearsExperience && formData.primaryJD.length > 50;
 
         // Render a bullet with classification tags and inline editing
         const renderBullet = (text, expIdx, achIdx) => {
@@ -1966,12 +1980,207 @@ ${companiesSection}
                 </div>
 
                 <div className="hero-cta">
-                  <button onClick={() => { setShowHero(false); window.scrollTo(0, 0); }}>Start your analysis →</button>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <button onClick={() => { setAppMode('analysis'); setShowHero(false); setStep(1); window.scrollTo(0, 0); }}>Start deep-dive analysis →</button>
+                      <button onClick={() => { setAppMode('pathfinder'); setShowHero(false); window.scrollTo(0, 0); }} style={{background:'#161b22', border:'1px solid rgba(255,255,255,0.14)'}}>
+                        Try Pathfinder (no JD needed)
+                      </button>
+                    </div>
                 </div>
               </div>
             )}
 
-            {/* ─── Header ─── */}
+            
+            {/* ─── Pathfinder (Phase 2) ─── */}
+            {!showHero && appMode === 'pathfinder' && (
+              <main className="max-w-4xl mx-auto px-5 py-10 fade-in">
+                <div className="card-elevated p-6">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="kicker">PATHFINDER</div>
+                      <h2 className="text-xl font-bold text-ink-900">Find your next best move</h2>
+                      <p className="text-sm text-ink-500 mt-1">No JD required. Answer up to 2 questions and get validated role + company matches.</p>
+                    </div>
+                    <button className="phase-nav-btn" onClick={() => { setAppMode('analysis'); setStep(1); }}>
+                      Switch to Deep Dive
+                    </button>
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-semibold text-ink-600">What do you do today?</label>
+                      <input className="mt-2 w-full px-4 py-3 border border-ink-300 rounded-lg"
+                        placeholder="e.g., DevSecOps Engineer, Product Manager"
+                        value={pfRole} onChange={e => setPfRole(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-ink-600">Years of experience</label>
+                      <select className="mt-2 w-full px-4 py-3 border border-ink-300 rounded-lg"
+                        value={pfYoE} onChange={e => setPfYoE(e.target.value)}>
+                        <option value="">Select</option>
+                        <option value="0-2">0–2</option>
+                        <option value="3-5">3–5</option>
+                        <option value="6-8">6–8</option>
+                        <option value="9-12">9–12</option>
+                        <option value="12+">12+</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="text-xs font-semibold text-ink-600">Optional: Paste LinkedIn (About + Experience + Skills)</label>
+                    <textarea className="mt-2 w-full h-28 px-4 py-3 border border-ink-300 rounded-lg"
+                      placeholder="Paste your LinkedIn profile sections here…"
+                      value={pfLinkedIn} onChange={e => setPfLinkedIn(e.target.value)} />
+                  </div>
+
+                  <div className="mt-5 flex gap-3">
+                    <button className="phase-nav-btn" disabled={pfLoading || !pfRole || !pfYoE}
+                      onClick={async () => {
+                        setPfLoading(true);
+                        setPfMatches([]);
+                        setPfQuestion(null);
+                        setPfSelected(null);
+                        try{
+                          const system = `You are Pathfinder for a career planning product. You must output ONLY valid JSON.
+
+You operate in two modes:
+1) ask mode: {"mode":"ask","question":"...","options":["...",...]}
+2) results mode: {"mode":"results","matches":[{"company":"","role":"","rationale":"","competitiveness":"low|medium|high","careersUrl":""}]}
+
+Rules:
+- Ask at most 2 questions.
+- Prefer fewer questions.
+- Switch to results when role + YoE + motivation/constraint is known.
+- Do NOT invent personal facts.
+
+Current user context:
+- current_role: ${pfRole}
+- years_experience: ${pfYoE}
+- linkedin_text: ${(pfLinkedIn||'').slice(0,1200)}
+
+If you need one more detail to propose matches, ask ONE question with 4–6 options. Otherwise return results with 6 matches.`;
+
+                          const raw = await callAPI(system, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 1800 });
+                          const obj = parseJSON(raw);
+                          if(obj.mode === 'ask'){
+                            setPfQuestion({ question: obj.question, options: obj.options || [] });
+                            setPfStep(2);
+                          } else {
+                            let matches = obj.matches || [];
+                            const q = matches.slice(0,5).map(m => `${m.company} ${m.role} careers`);
+                            const sr = await callSearch(q);
+                            if(sr){
+                              matches = matches.map(m => {
+                                const hit = sr[`${m.company} ${m.role} careers`];
+                                const url = hit && hit[0] && hit[0].url ? hit[0].url : (m.careersUrl || '');
+                                return { ...m, careersUrl: url };
+                              });
+                            }
+                            setPfMatches(matches);
+                            setPfStep(3);
+                          }
+                        }catch(e){
+                          alert('Pathfinder error: ' + (e.message||e));
+                        } finally { setPfLoading(false); }
+                      }}>
+                      {pfLoading ? 'Thinking…' : 'Find my next move'}
+                    </button>
+                    {pfStep > 1 && (
+                      <button className="phase-nav-btn" onClick={() => { setPfStep(1); setPfQuestion(null); setPfMatches([]); setPfSelected(null); }}>Reset</button>
+                    )}
+                  </div>
+
+                  {pfQuestion && (
+                    <div className="mt-6 card p-4">
+                      <div className="text-sm font-semibold text-ink-800">{pfQuestion.question}</div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(pfQuestion.options||[]).map(opt => (
+                          <button key={opt} type="button"
+                            className={`option-chip ${pfSelected===opt ? 'selected' : ''}`}
+                            onClick={() => setPfSelected(opt)}>
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="mt-4 flex gap-3">
+                        <button className="phase-nav-btn" disabled={!pfSelected || pfLoading}
+                          onClick={async () => {
+                            setPfLoading(true);
+                            try{
+                              const prompt = `You are Pathfinder. Continue from prior context.
+
+User context:
+- current_role: ${pfRole}
+- years_experience: ${pfYoE}
+- linkedin_text: ${(pfLinkedIn||'').slice(0,1200)}
+- user_answer: ${pfSelected}
+
+Return results mode ONLY:
+{"mode":"results","matches":[{"company":"","role":"","rationale":"","competitiveness":"low|medium|high","careersUrl":""}]}`;
+
+                              const raw = await callAPI(prompt, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 2200 });
+                              const obj = parseJSON(raw);
+                              let matches = obj.matches || [];
+                              const q = matches.slice(0,5).map(m => `${m.company} ${m.role} careers`);
+                              const sr = await callSearch(q);
+                              if(sr){
+                                matches = matches.map(m => {
+                                  const hit = sr[`${m.company} ${m.role} careers`];
+                                  const url = hit && hit[0] && hit[0].url ? hit[0].url : (m.careersUrl || '');
+                                  return { ...m, careersUrl: url };
+                                });
+                              }
+                              setPfMatches(matches);
+                              setPfQuestion(null);
+                              setPfStep(3);
+                            }catch(e){
+                              alert('Pathfinder error: ' + (e.message||e));
+                            } finally { setPfLoading(false); }
+                          }}>
+                          {pfLoading ? 'Thinking…' : 'Continue'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {pfMatches && pfMatches.length > 0 && (
+                    <div className="mt-6">
+                      <div className="text-sm font-semibold text-ink-800 mb-3">Suggested matches</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {pfMatches.slice(0,8).map((m, i) => (
+                          <div key={i} className="card p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-bold text-ink-900">{m.role}</div>
+                              <span className="pill bg-ink-100 text-ink-700">{m.competitiveness || 'medium'}</span>
+                            </div>
+                            <div className="text-xs text-ink-500 mt-1">{m.company}</div>
+                            <div className="text-xs text-ink-600 mt-2">{m.rationale}</div>
+                            <div className="mt-3 flex items-center gap-2">
+                              {m.careersUrl && (
+                                <a className="text-xs text-accent-600 hover:underline" href={m.careersUrl} target="_blank" rel="noreferrer">Careers</a>
+                              )}
+                              <button className="phase-nav-btn" onClick={() => {
+                                setAppMode('analysis');
+                                set('targetCompany', m.company);
+                                set('targetRole', m.role);
+                                if (pfLinkedIn && !formData.currentResume) { set('currentResume', pfLinkedIn); setResumeSource('linkedin'); }
+                                setStep(1);
+                                window.scrollTo(0,0);
+                              }}>
+                                Deep dive →
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </main>
+            )}
+
+{/* ─── Header ─── */}
             {(!showHero || step !== 1) && (
               <header className="bg-white border-b border-ink-200">
                 <div className="max-w-5xl mx-auto px-5 py-4">
@@ -2015,7 +2224,7 @@ ${companiesSection}
             <main className="max-w-5xl mx-auto px-5 py-8">
 
               {/* ═══════════ STEP 1: INPUT FORM ═══════════ */}
-              {step === 1 && !loading && !showHero && (
+              {step === 1 && !loading && !showHero && appMode === 'analysis' && (
                 <div className="fade-in space-y-5">
                   <div className="card-elevated p-4 sm:p-6 md:p-8 w-full max-w-full overflow-hidden">
                     <h2 className="text-xl font-bold text-ink-800 mb-1">Start your analysis</h2>
@@ -2069,6 +2278,24 @@ ${companiesSection}
                             <p>Upload your file or paste text directly — both work. Mark estimates with [ESTIMATE].</p>
                           </div>
                         </details>
+                        <div className="flex items-center justify-between mt-3 mb-2">
+                          <div className="text-sm font-semibold text-ink-800">Your profile input</div>
+                          <div className="flex rounded-lg border border-ink-200 overflow-hidden">
+                            <button type="button"
+                              className={`px-3 py-1.5 text-xs font-semibold ${resumeSource==='resume' ? 'bg-accent-100 text-accent-700' : 'bg-white text-ink-600'}`}
+                              onClick={() => setResumeSource('resume')}>
+                              Resume
+                            </button>
+                            <button type="button"
+                              className={`px-3 py-1.5 text-xs font-semibold ${resumeSource==='linkedin' ? 'bg-accent-100 text-accent-700' : 'bg-white text-ink-600'}`}
+                              onClick={() => setResumeSource('linkedin')}>
+                              LinkedIn Paste
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-ink-500 mb-2">
+                          {resumeSource==='linkedin' ? 'Paste your LinkedIn About + Experience + Skills. We’ll convert it into an ATS-safe resume.' : 'Paste your resume or upload a PDF/DOCX. We’ll tailor it to the role.'}
+                        </p>
                         <textarea value={formData.currentResume} onChange={e => set('currentResume', e.target.value)}
                           placeholder="Your resume text will appear here after upload, or paste directly..."
                           className="w-full h-52 px-4 py-3 border border-ink-300 rounded-lg focus:ring-2 focus:ring-accent-400 focus:border-transparent resize-none font-mono text-sm bg-white" />
