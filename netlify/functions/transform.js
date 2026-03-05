@@ -23,23 +23,22 @@ function extractFirstJsonObject(raw) {
 }
 
 async function callGroq({ apiKey, model, prompt, temperature = 0.2, max_tokens = 4096, response_format }) {
-  // Model-specific system prompt tuning
-  let systemContent = "You are a strict JSON generator. Output ONLY one valid JSON object. " +
+  let sysMsg = "You are a strict JSON generator. Output ONLY one valid JSON object. " +
     "No markdown, no code fences, no explanations, no extra text. " +
     "The output MUST start with '{' and end with '}'. " +
     "All strings must be properly escaped. Never use unescaped quotes inside string values.";
 
   if (model === "openai/gpt-oss-120b") {
-    systemContent += " Be concise in all JSON string values — use the fewest words needed to convey meaning. Avoid filler phrases.";
+    sysMsg += " Be concise — use the fewest words needed. Avoid filler phrases and repetition.";
   }
   if (model === "qwen/qwen3-32b") {
-    systemContent += " /no_think";
+    sysMsg += " /no_think";
   }
 
   const body = {
     model,
     messages: [
-      { role: "system", content: systemContent },
+      { role: "system", content: sysMsg },
       { role: "user", content: prompt }
     ],
     temperature,

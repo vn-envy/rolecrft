@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
@@ -156,7 +157,6 @@
 
       /* ─── Dark: Star rating dim ──────────────────────────── */
       html[data-theme="dark"] .star-btn.dim { color: #30363d; }
-      html[data-theme="dark"] .kicker { color: #a3bf82; }
 
       /* Keep export/print light */
       @media print {
@@ -195,7 +195,6 @@
 
       /* Badge */
       .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-      .kicker { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #84a55b; margin-bottom: 4px; }
 
       /* Tabs */
       .tab-btn { position: relative; padding: 14px 20px; font-weight: 500; font-size: 14px; color: #6c757d; white-space: nowrap; transition: color 0.15s; }
@@ -512,10 +511,12 @@
 
         const pricing = {
           americas: {
-            single: { price: 15, display: '$15', label: 'Single Analysis', bonus: '+1 free analysis (15 days)' }
+            single: { price: 9, display: '$9', label: 'Single Analysis' },
+            triple: { price: 15, display: '$15', label: '3 Companies', savings: 'Save $12' }
           },
           india: {
-            single: { price: 199, display: '₹199', label: 'Single Analysis (launch price)', note: 'Regular ₹299' }
+            single: { price: 299, display: '₹299', label: 'Single Analysis' },
+            triple: { price: 799, display: '₹799', label: '3 Companies', savings: 'Save ₹98' }
           }
         };
 
@@ -635,50 +636,54 @@
           });
         };
 
-        // ─── API call with timeout, retries, and model fallback ──
+        // ─── API call with timeout + model fallback ──────────────
 
-        const MODEL_FALLBACK = {
+        const FALLBACKS = {
           'openai/gpt-oss-120b': 'llama-3.3-70b-versatile',
           'qwen/qwen3-32b': 'llama-3.3-70b-versatile',
           'llama-3.1-8b-instant': 'llama-3.3-70b-versatile',
           'llama-3.3-70b-versatile': 'qwen/qwen3-32b'
         };
 
-        const callAPI = async (prompt, { temperature = 0.2, max_tokens = 4096, retries = 2, model = 'qwen/qwen3-32b', _isFallback = false } = {}) => {
+        const callAPI = async (prompt, options) => {
+          const o = options || {};
+          const temperature = o.temperature != null ? o.temperature : 0.2;
+          const max_tokens = o.max_tokens || 4096;
+          const retries = o.retries != null ? o.retries : 2;
+          const model = o.model || 'qwen/qwen3-32b';
+          const _fb = o._fb || false;
           const fullPrompt = prompt + '\n\nCRITICAL: Output must be a single valid JSON object starting with "{" and ending with "}". No text before or after. No markdown fences.';
-          const TIMEOUT_MS = 20000; // 20 seconds per attempt
 
           for (let i = 0; i <= retries; i++) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            const ctrl = new AbortController();
+            const tid = setTimeout(function(){ ctrl.abort(); }, 25000);
             try {
               const res = await fetch("/.netlify/functions/transform", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: fullPrompt, temperature, max_tokens, model }),
-                signal: controller.signal
+                body: JSON.stringify({ prompt: fullPrompt, temperature: temperature, max_tokens: max_tokens, model: model }),
+                signal: ctrl.signal
               });
-              clearTimeout(timer);
+              clearTimeout(tid);
               const text = await res.text();
               let data;
-              try { data = JSON.parse(text); } catch { data = { error: text }; }
-              if (!res.ok) throw new Error(data?.error || `API error ${res.status}`);
-              return data.content.find(c => c.type === "text")?.text || "";
+              try { data = JSON.parse(text); } catch(e) { data = { error: text }; }
+              if (!res.ok) throw new Error((data && data.error) || ('API error ' + res.status));
+              const found = (data.content || []).find(function(c){ return c.type === "text"; });
+              return found ? found.text : "";
             } catch (err) {
-              clearTimeout(timer);
-              const isTimeout = err.name === 'AbortError';
-              const errMsg = isTimeout ? `Timeout (${TIMEOUT_MS/1000}s) on ${model}` : err.message;
-              console.warn(`callAPI attempt ${i+1}/${retries+1} failed [${model}]: ${errMsg}`);
+              clearTimeout(tid);
+              const msg = err.name === 'AbortError' ? 'Request timed out for ' + model : err.message;
+              console.warn('callAPI [' + model + '] attempt ' + (i+1) + ': ' + msg);
               if (i === retries) {
-                // All retries exhausted — try fallback model once
-                const fallback = MODEL_FALLBACK[model];
-                if (fallback && !_isFallback) {
-                  console.warn(`Falling back from ${model} to ${fallback}`);
-                  return callAPI(prompt, { temperature, max_tokens, retries: 1, model: fallback, _isFallback: true });
+                const fb = FALLBACKS[model];
+                if (fb && !_fb) {
+                  console.warn('Falling back: ' + model + ' → ' + fb);
+                  return callAPI(prompt, { temperature: temperature, max_tokens: max_tokens, retries: 1, model: fb, _fb: true });
                 }
-                throw new Error(`${errMsg} (model: ${model})`);
+                throw new Error(msg);
               }
-              await new Promise(r => setTimeout(r, 2000 * (i + 1)));
+              await new Promise(function(r){ setTimeout(r, 1500 * (i + 1)); });
             }
           }
         };
@@ -922,7 +927,7 @@ Extract patterns and return ONLY valid JSON:
   "winningPhrases": ["phrase from JD that should be echoed in resume"]
 }`;
 
-            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'llama-3.1-8b-instant' });
+            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'qwen/qwen3-32b' });
             let jdData = validateJDData(parseJSON(jdRaw));
             updateStage(1, { status: 'done', detail: `${jdData.mandatorySkills.length} required skills, ${jdData.niceToHave.length} nice-to-haves` });
 
@@ -937,41 +942,56 @@ COMPANY PROFILE: ${JSON.stringify(companyData)}
 JD REQUIREMENTS: ${JSON.stringify(jdData)}
 TARGET: ${formData.targetRole} at ${formData.targetCompany}
 
-═══ SCORING RUBRIC (100 points total) ═══
+═══ SCORING RUBRIC (100 points total, 8 categories) ═══
 
-CATEGORY 1 — KEYWORD MATCH (25 pts)
-Count how many of these JD mandatory skills appear in the resume (exact or close synonym):
-${jdData.mandatorySkills.slice(0, 10).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
-Score: (skills found / total listed) × 25. If resume uses a synonym (e.g., "ML" for "Machine Learning"), count it.
+CATEGORY 1 — MUST-HAVE COVERAGE (30 pts)
+JD mandatory skills to check:
+${jdData.mandatorySkills.slice(0, 15).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
+For each skill: 2 pts if explicitly present with context, 1 pt if synonym/adjacent, 0 if absent.
+Score = sum of per-skill scores, scaled to /30. Count exact matches vs total.
 
-CATEGORY 2 — QUANTIFICATION DENSITY (20 pts)
-Count total resume bullet points. Count how many contain at least one number, percentage, dollar amount, or measurable outcome.
-Score: (quantified bullets / total bullets) × 20. Cap at 20.
+CATEGORY 2 — RESPONSIBILITIES ALIGNMENT (12 pts)
+Compare resume bullets to these JD responsibility themes:
+${(jdData.responsibilityPatterns || []).slice(0, 6).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
+Score 2 pts per theme where resume shows direct evidence (max 12). Semantic similarity counts, not just keyword match.
 
-CATEGORY 3 — EXPERIENCE FIT (20 pts)
-Evaluate on four sub-factors (5 pts each):
-- Years of experience vs JD requirement (5 pts: exact match=5, within 2 years=3, off by 3+=1)
-- Seniority level alignment (5 pts: exact=5, one level off=3, two+=1)
-- Industry/domain match (5 pts: same industry=5, adjacent=3, unrelated=1)
-- Company scale similarity (5 pts: similar stage/size=5, somewhat=3, very different=1)
+CATEGORY 3 — TONALITY FIT (8 pts)
+Analyze the JD's writing style (ownership vs collaborative, metrics-heavy vs narrative, mechanism-oriented vs outcome-oriented).
+- Style match (0-4): does the resume's language mirror the JD's top 2 tone signals?
+- Cues in context (0-2): does the resume use the JD's preferred verbs/nouns naturally?
+- Restraint (0-2): penalize if resume uses buzzwords, slogans, or tone the JD avoids.
 
-CATEGORY 4 — IMPACT DEPTH (15 pts)
-For each bullet, classify the highest impact level described:
-- Company/business level impact (revenue, market share, company-wide adoption) = 3 pts
-- Product/team level impact (shipped feature, improved team metric) = 2 pts
-- Task-level only (did X, worked on Y, responsible for Z) = 0.5 pts
-Score: Sum of bullet scores, capped at 15.
+CATEGORY 4 — IMPACT METRICS (15 pts)
+For each bullet, score the impact evidence:
+- Business/company level impact with numbers (revenue, market share, cost savings) = 3 pts
+- Product/team level with measurable outcome = 2 pts
+- Activity-only / task-level (did X, worked on Y, responsible for Z) = 0 pts
+Score = sum capped at 15. Note: "Reduced X by Y%" is strong. "Managed a team" without outcome is weak.
 
-CATEGORY 5 — TECHNICAL SPECIFICITY (10 pts)
-Count bullets that name specific technologies, tools, frameworks, or methodologies (not just categories like "cloud" or "databases").
-Score: (specific bullets / total bullets) × 10. Cap at 10.
+CATEGORY 5 — SENIORITY & SCOPE (10 pts)
+- Years of experience vs JD expectation (3 pts: match=3, within 2yr=2, off 3+=1)
+- Management/leadership scope alignment (3 pts: matches=3, partial=2, none=1)
+- Decision-making evidence matching JD seniority (2 pts)
+- Cross-functional / stakeholder scope (2 pts)
 
-CATEGORY 6 — STRUCTURAL QUALITY (10 pts)
-- Has clear job titles with company names and dates (3 pts)
-- Consistent bullet format (2 pts)
-- Professional summary or clear positioning (2 pts)
-- Skills section with relevant technologies (2 pts)
-- Logical chronological/functional flow (1 pt)
+CATEGORY 6 — ATS STRUCTURE (10 pts)
+Deterministic checks:
+- Clear job titles with company names and dates (3 pts)
+- No tables/columns/graphics (ATS-hostile elements) (2 pts)
+- Professional summary present (2 pts)
+- Skills section with categorized technologies (2 pts)
+- Consistent date format and chronological order (1 pt)
+
+CATEGORY 7 — DOMAIN & TOOLING (10 pts)
+- Count resume mentions of specific tools/technologies from the JD tech stack
+- Score = (tools mentioned in context / total JD tools) × 10
+- "Used Python for data analysis" scores; "Python" listed in skills-only scores half.
+- Domain match: same industry = +2 bonus (cap at 10)
+
+CATEGORY 8 — DIFFERENTIATORS (5 pts)
+- Unique achievements not typical of this role level (2 pts)
+- Evidence of initiative beyond job description (2 pts)  
+- Clear personal brand / unique positioning statement (1 pt)
 
 ═══ INSTRUCTIONS ═══
 1. Compute each category score with a brief justification
@@ -984,16 +1004,18 @@ Return ONLY valid JSON:
 {
   "matchScore": 58,
   "scoreBreakdown": {
-    "keywordMatch": {"score": 14, "max": 25, "detail": "7 of 10 mandatory skills found"},
-    "quantification": {"score": 8, "max": 20, "detail": "4 of 10 bullets have metrics"},
-    "experienceFit": {"score": 15, "max": 20, "detail": "Years and seniority match well, industry adjacent"},
-    "impactDepth": {"score": 9, "max": 15, "detail": "Most bullets are task-level, few show business impact"},
-    "technicalSpecificity": {"score": 6, "max": 10, "detail": "6 of 10 bullets name specific tools"},
-    "structuralQuality": {"score": 6, "max": 10, "detail": "Good structure but no summary section"}
+    "mustHaveCoverage": {"score": 18, "max": 30, "detail": "12 of 15 must-have skills found in context"},
+    "responsibilitiesAlignment": {"score": 8, "max": 12, "detail": "4 of 6 responsibility themes have evidence"},
+    "tonalityFit": {"score": 5, "max": 8, "detail": "Metrics-oriented tone matches JD; some generic phrasing penalized"},
+    "impactMetrics": {"score": 9, "max": 15, "detail": "6 of 10 bullets have measurable outcomes"},
+    "seniorityScope": {"score": 7, "max": 10, "detail": "YOE matches, leadership evidence present but thin"},
+    "atsStructure": {"score": 8, "max": 10, "detail": "Clean structure, missing skills categorization"},
+    "domainTooling": {"score": 6, "max": 10, "detail": "5 of 8 JD tools mentioned with context"},
+    "differentiators": {"score": 3, "max": 5, "detail": "One standout initiative, no unique positioning"}
   },
   "topGaps": [
-    {"item": "Specific Skill or Area", "impact": "High", "reason": "Mentioned 4 times in JD, absent from resume", "category": "keywordMatch"},
-    {"item": "Quantified Outcomes", "impact": "High", "reason": "Only 4 of 10 bullets have measurable results", "category": "quantification"}
+    {"item": "Specific Skill or Area", "impact": "High", "reason": "Mentioned 4 times in JD, absent from resume", "category": "mustHaveCoverage"},
+    {"item": "Quantified Outcomes", "impact": "High", "reason": "Only 4 of 10 bullets have measurable results", "category": "impactMetrics"}
   ],
   "topStrengths": ["Strength with specific evidence from their resume"],
   "preview": {
@@ -1014,7 +1036,7 @@ Return ONLY valid JSON:
   }
 }`;
 
-            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500, model: 'openai/gpt-oss-120b' });
+            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500 });
             let scoreData = parseJSON(scoreRaw);
             updateStage(2, { status: 'done', detail: `Score: ${scoreData.matchScore}% → ${scoreData.potentialScoreAfter}% potential` });
 
@@ -1220,7 +1242,7 @@ Return ONLY valid JSON:
       "time": "1-2 weeks",
       "cost": "Free or $XX",
       "scoreImpact": 5,
-      "scoreCategories": ["keywordMatch", "technicalSpecificity"],
+      "scoreCategories": ["mustHaveCoverage", "domainTooling"],
       "platform": "Coursera",
       "link": "https://www.coursera.org",
       "difficulty": "easy|moderate|challenging",
@@ -1229,7 +1251,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000, model: 'openai/gpt-oss-120b' });
+            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000 });
             let actionData = parseJSON(actionRaw);
             const actions = (actionData.actions || []).sort((a, b) => (a.priority || 99) - (b.priority || 99));
             updateStage(2, { status: 'done', detail: `${actions.length} targeted actions` });
@@ -1308,7 +1330,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000, model: 'qwen/qwen3-32b' });
+            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000 });
             let questionsData = parseJSON(questionsRaw);
             updateStage(4, { status: 'done', detail: `${questionsData.questions?.length || 0} questions across ${questionsData.prepDimensions?.length || 0} dimensions` });
 
@@ -1469,7 +1491,7 @@ Return ONLY valid JSON:
   "timingStrategy": "When and how to sequence outreach (2-3 sentences)"
 }`;
 
-            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000, model: 'openai/gpt-oss-120b' }).then(raw => {
+            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000 }).then(raw => {
               try { return parseJSON(raw); } catch(e) { console.warn('Networking parse failed:', e); return null; }
             }).catch(e => { console.warn('Networking call failed:', e); return null; });
 
@@ -1496,14 +1518,12 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const companiesPromise = callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000, model: 'openai/gpt-oss-120b' }).then(raw => {
-              try { return parseJSON(raw); } catch(e) { console.warn('Companies parse failed:', e); return { companies: [] }; }
-            }).catch(e => { console.warn('Companies call failed:', e); return { companies: [] }; });
+            const companiesRaw = await callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000 });
+            let companiesData = parseJSON(companiesRaw);
 
             prepResources = await prepSearchPromise;
             structuredPrep = prepResources; // This is now the categorized prep data
             const networkingData = await networkingPromise;
-            const companiesData = await companiesPromise;
 
             const companiesWithLinks = (companiesData.companies || []).map(c => ({
               ...c,
@@ -1577,15 +1597,7 @@ Return ONLY valid JSON:
         };
 
         const handlePayment = async () => {
-          const region = formData.region || 'americas';
-          const p = pricing[region]?.single || pricing.americas.single;
-          const confirmed = confirm(
-            `Unlock your full career intelligence report for ${p.display}?\n\n` +
-            `Includes: Optimized resume, ATS scan, interview prep, STAR stories, networking scripts, and similar companies.\n` +
-            (region === 'americas' ? `Plus a bonus analysis free for 15 days.` : `Launch price — regular ${pricing.india?.single?.note || '₹299'}.`) +
-            `\n\n(Payment integration coming soon — proceeding free for now)`
-          );
-          if (!confirmed) return;
+          alert('Payment integration coming soon. Proceeding to full analysis for now...');
           await generateFullAnalysis();
         };
 
@@ -1610,43 +1622,56 @@ Return ONLY valid JSON:
           try {
             const r = fullResults.transformedResume;
             const clean = (s) => (s || '').replace(/\[SUGGESTED\]/g, '').replace(/\[(KEPT|IMPROVED|ADDED)\]\s*/g, '');
-            const html = `<!DOCTYPE html>
-<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/1999/xhtml'>
-<head><meta charset='utf-8'><title>Resume</title>
-<style>
-  body { font-family: Calibri, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 48px 40px; line-height: 1.5; font-size: 11pt; color: #1a1a1a; }
-  h1 { text-align: center; font-size: 22pt; margin: 0 0 4px; letter-spacing: 0.5px; }
-  .contact { text-align: center; font-size: 9.5pt; color: #555; margin-bottom: 24px; }
-  h2 { font-size: 10.5pt; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 1.5px solid #1a1a1a; padding-bottom: 3px; margin: 20px 0 10px; }
-  .role-header { margin-bottom: 2px; }
-  .role-title { font-weight: 700; font-size: 11pt; display: inline; }
-  .role-company { font-size: 10.5pt; color: #333; }
-  .role-dates { font-size: 9.5pt; color: #666; float: right; }
-  ul { margin: 4px 0 16px 18px; padding: 0; }
-  li { font-size: 10.5pt; margin-bottom: 4px; line-height: 1.45; }
-  .summary { font-size: 10.5pt; margin-bottom: 16px; text-align: justify; }
-  .skills { font-size: 10.5pt; line-height: 1.6; }
-</style></head><body>
-<h1>${clean(r.name)}</h1>
-<div class="contact">${[r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).join('  ·  ')}</div>
-<h2>Summary</h2>
-<div class="summary">${clean(r.summary)}</div>
-<h2>Experience</h2>
-${r.experience.map(e => `
-<div class="role-header"><span class="role-dates">${clean(e.duration)}</span><div class="role-title">${clean(e.title)}</div><div class="role-company">${clean(e.company)}</div></div>
-<ul>${e.achievements.map(a => `<li>${clean(a)}</li>`).join('')}</ul>`).join('')}
-<h2>Skills</h2>
-<div class="skills">${r.skills.join('  ·  ')}</div>
-<h2>Education</h2>
-${(r.education || []).map(ed => `<div><strong style="font-size:10.5pt">${ed.degree}</strong><br><span style="font-size:9.5pt;color:#555">${ed.institution}${ed.year ? ' · ' + ed.year : ''}</span></div>`).join('')}
-</body></html>`;
 
-            const blob = new Blob([html], { type: 'application/msword' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `${r.name.replace(/\s+/g, '_')}_${formData.targetCompany}_Resume.doc`;
-            a.click();
-            URL.revokeObjectURL(a.href);
+            // Build HTML for pdf rendering
+            const resumeHTML = document.createElement('div');
+            resumeHTML.style.cssText = 'font-family: Calibri, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 28px; line-height: 1.5; font-size: 11pt; color: #1a1a1a; background: white;';
+            let h = '';
+            h += '<h1 style="text-align:center;font-size:20pt;margin:0 0 4px;letter-spacing:0.5px;color:#1a1a1a;">' + clean(r.name) + '</h1>';
+            h += '<div style="text-align:center;font-size:9pt;color:#555;margin-bottom:20px;">' + [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).join('  ·  ') + '</div>';
+            h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Summary</h2>';
+            h += '<div style="font-size:10pt;margin-bottom:12px;text-align:justify;">' + clean(r.summary) + '</div>';
+            h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Experience</h2>';
+            (r.experience || []).forEach(function(e) {
+              h += '<div style="margin-bottom:2px;"><span style="font-size:9pt;color:#666;float:right;">' + clean(e.duration) + '</span>';
+              h += '<div style="font-weight:700;font-size:10.5pt;display:inline;">' + clean(e.title) + '</div>';
+              h += '<div style="font-size:10pt;color:#333;">' + clean(e.company) + '</div></div>';
+              h += '<ul style="margin:4px 0 14px 18px;padding:0;">';
+              (e.achievements || []).forEach(function(a) {
+                h += '<li style="font-size:10pt;margin-bottom:3px;line-height:1.4;">' + clean(a) + '</li>';
+              });
+              h += '</ul>';
+            });
+            h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Skills</h2>';
+            h += '<div style="font-size:10pt;line-height:1.6;">' + (r.skills || []).join('  ·  ') + '</div>';
+            h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Education</h2>';
+            (r.education || []).forEach(function(ed) {
+              h += '<div><strong style="font-size:10pt;">' + (ed.degree || '') + '</strong><br><span style="font-size:9pt;color:#555;">' + (ed.institution || '') + (ed.year ? ' · ' + ed.year : '') + '</span></div>';
+            });
+            resumeHTML.innerHTML = h;
+
+            // Temporarily add to DOM for rendering
+            document.body.appendChild(resumeHTML);
+            var fname = clean(r.name).replace(/\s+/g, '_') + '_' + formData.targetCompany + '_Resume.pdf';
+
+            if (window.html2pdf) {
+              html2pdf().set({
+                margin: [10, 8, 10, 8],
+                filename: fname,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+              }).from(resumeHTML).save().then(function() {
+                document.body.removeChild(resumeHTML);
+              });
+            } else {
+              // Fallback: print-to-PDF via new window
+              document.body.removeChild(resumeHTML);
+              var w = window.open('', '_blank');
+              w.document.write('<html><head><title>Resume</title><style>body{font-family:Calibri,Arial,sans-serif;max-width:720px;margin:0 auto;padding:40px;font-size:11pt;color:#1a1a1a;}</style></head><body>' + h + '</body></html>');
+              w.document.close();
+              w.print();
+            }
           } catch (err) {
             alert('Export failed: ' + err.message);
           }
@@ -1988,27 +2013,6 @@ ${companiesSection}
                 <div className="hero-tagline">craft your way in</div>
                 <div className="hero-underline" />
 
-                {/* Why not just ChatGPT? */}
-                <div style={{ maxWidth: 680, width: '100%', marginTop: 48, opacity: 0, animation: 'hFadeUp 0.5s ease-out 1.95s forwards' }}>
-                  <div style={{ textAlign: 'center', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: '#555b55', marginBottom: 20 }}>
-                    Why not just ChatGPT it?
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>Multi-stage pipeline</div>
-                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>ChatGPT rewrites in one pass. We research the company, parse the JD, score your gaps, then rewrite — each stage informed by the last.</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>Consistent scoring</div>
-                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>ChatGPT gives different feedback every time. Our 6-category rubric scores consistently so you can track improvement across applications.</div>
-                    </div>
-                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>6 deliverables, one click</div>
-                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>Resume, ATS keywords, STAR stories, interview questions, networking scripts, and company matches — all coordinated, not six separate prompts.</div>
-                    </div>
-                  </div>
-                </div>
-
                 <div className="hero-phases">
                   <div className="hero-phase">
                     <div className="phase-num">1</div>
@@ -2114,7 +2118,7 @@ Current user context:
 
 If you need one more detail to propose matches, ask ONE question with 4–6 options. Otherwise return results with 6 matches.`;
 
-                          const raw = await callAPI(system, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 1800 });
+                          const raw = await callAPI(system, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 1800 });
                           const obj = parseJSON(raw);
                           if(obj.mode === 'ask'){
                             setPfQuestion({ question: obj.question, options: obj.options || [] });
@@ -2172,7 +2176,7 @@ User context:
 Return results mode ONLY:
 {"mode":"results","matches":[{"company":"","role":"","rationale":"","competitiveness":"low|medium|high","careersUrl":""}]}`;
 
-                              const raw = await callAPI(prompt, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 2200 });
+                              const raw = await callAPI(prompt, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 2200 });
                               const obj = parseJSON(raw);
                               let matches = obj.matches || [];
                               const q = matches.slice(0,5).map(m => `${m.company} ${m.role} careers`);
@@ -2569,12 +2573,14 @@ Return results mode ONLY:
                         <h3 className="text-xs font-bold uppercase tracking-widest text-ink-400 mb-3">Score Breakdown</h3>
                         <div className="space-y-2.5">
                           {[
-                            { key: 'keywordMatch', label: 'Keyword Match', color: 'bg-accent-500' },
-                            { key: 'quantification', label: 'Quantified Results', color: 'bg-good-500' },
-                            { key: 'experienceFit', label: 'Experience Fit', color: 'bg-purple-500' },
-                            { key: 'impactDepth', label: 'Impact Depth', color: 'bg-warn-500' },
-                            { key: 'technicalSpecificity', label: 'Technical Specificity', color: 'bg-cyan-500' },
-                            { key: 'structuralQuality', label: 'Structure', color: 'bg-ink-400' },
+                            { key: 'mustHaveCoverage', label: 'Must-Have Skills', color: 'bg-accent-500' },
+                            { key: 'responsibilitiesAlignment', label: 'Responsibilities Fit', color: 'bg-good-500' },
+                            { key: 'tonalityFit', label: 'Tonality Fit', color: 'bg-purple-500' },
+                            { key: 'impactMetrics', label: 'Impact & Metrics', color: 'bg-warn-500' },
+                            { key: 'seniorityScope', label: 'Seniority & Scope', color: 'bg-cyan-500' },
+                            { key: 'atsStructure', label: 'ATS Structure', color: 'bg-ink-400' },
+                            { key: 'domainTooling', label: 'Domain & Tooling', color: 'bg-accent-600' },
+                            { key: 'differentiators', label: 'Differentiators', color: 'bg-good-600' },
                           ].map(cat => {
                             const data = previewData.scoreBreakdown[cat.key];
                             if (!data) return null;
@@ -2812,12 +2818,14 @@ Return results mode ONLY:
                               <h3 className="text-xs font-bold uppercase tracking-widest text-ink-400 mb-3">Score Breakdown</h3>
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
                                 {[
-                                  { key: 'keywordMatch', label: 'Keyword Match', color: 'bg-accent-500' },
-                                  { key: 'quantification', label: 'Quantified Results', color: 'bg-good-500' },
-                                  { key: 'experienceFit', label: 'Experience Fit', color: 'bg-purple-500' },
-                                  { key: 'impactDepth', label: 'Impact Depth', color: 'bg-warn-500' },
-                                  { key: 'technicalSpecificity', label: 'Technical Specificity', color: 'bg-cyan-500' },
-                                  { key: 'structuralQuality', label: 'Structure', color: 'bg-ink-400' },
+                                  { key: 'mustHaveCoverage', label: 'Must-Have Skills', color: 'bg-accent-500' },
+                                  { key: 'responsibilitiesAlignment', label: 'Responsibilities Fit', color: 'bg-good-500' },
+                                  { key: 'tonalityFit', label: 'Tonality Fit', color: 'bg-purple-500' },
+                                  { key: 'impactMetrics', label: 'Impact & Metrics', color: 'bg-warn-500' },
+                                  { key: 'seniorityScope', label: 'Seniority & Scope', color: 'bg-cyan-500' },
+                                  { key: 'atsStructure', label: 'ATS Structure', color: 'bg-ink-400' },
+                                  { key: 'domainTooling', label: 'Domain & Tooling', color: 'bg-accent-600' },
+                                  { key: 'differentiators', label: 'Differentiators', color: 'bg-good-600' },
                                 ].map(cat => {
                                   const data = fullResults.scoreBreakdown[cat.key];
                                   if (!data) return null;
@@ -2897,7 +2905,7 @@ Return results mode ONLY:
                             <h2 className="text-xl font-bold text-ink-800">Resume & ATS Optimization</h2>
                             <button onClick={exportResumeToDoc}
                               className="px-5 py-2 bg-accent-600 text-white text-sm font-medium rounded-lg hover:bg-accent-700 transition-colors">
-                              Download .doc
+                              Download PDF
                             </button>
                           </div>
 
@@ -3217,7 +3225,7 @@ Return results mode ONLY:
                                   {tierActions.map((a) => {
                                     const globalIdx = fullResults.actions.indexOf(a);
                                     const isChecked = completedActions.has(globalIdx);
-                                    const catLabels = { keywordMatch: 'Keywords', quantification: 'Metrics', experienceFit: 'Fit', impactDepth: 'Impact', technicalSpecificity: 'Technical', structuralQuality: 'Structure' };
+                                    const catLabels = { mustHaveCoverage: 'Skills', responsibilitiesAlignment: 'Fit', tonalityFit: 'Tone', impactMetrics: 'Impact', seniorityScope: 'Seniority', atsStructure: 'ATS', domainTooling: 'Tooling', differentiators: 'Edge' };
                                     return (
                                       <div key={globalIdx} className={`p-4 bg-white transition-colors ${isChecked ? 'bg-good-50/30' : ''}`}>
                                         <div className="flex items-start gap-3 w-full min-w-0">
