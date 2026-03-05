@@ -156,6 +156,7 @@
 
       /* ─── Dark: Star rating dim ──────────────────────────── */
       html[data-theme="dark"] .star-btn.dim { color: #30363d; }
+      html[data-theme="dark"] .kicker { color: #a3bf82; }
 
       /* Keep export/print light */
       @media print {
@@ -194,6 +195,7 @@
 
       /* Badge */
       .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+      .kicker { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #84a55b; margin-bottom: 4px; }
 
       /* Tabs */
       .tab-btn { position: relative; padding: 14px 20px; font-weight: 500; font-size: 14px; color: #6c757d; white-space: nowrap; transition: color 0.15s; }
@@ -510,12 +512,10 @@
 
         const pricing = {
           americas: {
-            single: { price: 9, display: '$9', label: 'Single Analysis' },
-            triple: { price: 15, display: '$15', label: '3 Companies', savings: 'Save $12' }
+            single: { price: 15, display: '$15', label: 'Single Analysis', bonus: '+1 free analysis (15 days)' }
           },
           india: {
-            single: { price: 299, display: '₹299', label: 'Single Analysis' },
-            triple: { price: 799, display: '₹799', label: '3 Companies', savings: 'Save ₹98' }
+            single: { price: 199, display: '₹199', label: 'Single Analysis (launch price)', note: 'Regular ₹299' }
           }
         };
 
@@ -535,8 +535,6 @@
             localStorage.setItem('rt_theme', theme);
           } catch(e) { /* ignore */ }
         }, [theme]);
-
-;
 
         const saveToHistory = (entry) => {
           try {
@@ -637,25 +635,49 @@
           });
         };
 
-        // ─── API call with per-stage config ──────────────────────
+        // ─── API call with timeout, retries, and model fallback ──
 
-        const callAPI = async (prompt, { temperature = 0.2, max_tokens = 4096, retries = 2, model = 'qwen/qwen3-32b' } = {}) => {
+        const MODEL_FALLBACK = {
+          'openai/gpt-oss-120b': 'llama-3.3-70b-versatile',
+          'qwen/qwen3-32b': 'llama-3.3-70b-versatile',
+          'llama-3.1-8b-instant': 'llama-3.3-70b-versatile',
+          'llama-3.3-70b-versatile': 'qwen/qwen3-32b'
+        };
+
+        const callAPI = async (prompt, { temperature = 0.2, max_tokens = 4096, retries = 2, model = 'qwen/qwen3-32b', _isFallback = false } = {}) => {
           const fullPrompt = prompt + '\n\nCRITICAL: Output must be a single valid JSON object starting with "{" and ending with "}". No text before or after. No markdown fences.';
+          const TIMEOUT_MS = 20000; // 20 seconds per attempt
 
           for (let i = 0; i <= retries; i++) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
             try {
               const res = await fetch("/.netlify/functions/transform", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prompt: fullPrompt, temperature, max_tokens, model })
+                body: JSON.stringify({ prompt: fullPrompt, temperature, max_tokens, model }),
+                signal: controller.signal
               });
+              clearTimeout(timer);
               const text = await res.text();
               let data;
               try { data = JSON.parse(text); } catch { data = { error: text }; }
               if (!res.ok) throw new Error(data?.error || `API error ${res.status}`);
               return data.content.find(c => c.type === "text")?.text || "";
             } catch (err) {
-              if (i === retries) throw err;
+              clearTimeout(timer);
+              const isTimeout = err.name === 'AbortError';
+              const errMsg = isTimeout ? `Timeout (${TIMEOUT_MS/1000}s) on ${model}` : err.message;
+              console.warn(`callAPI attempt ${i+1}/${retries+1} failed [${model}]: ${errMsg}`);
+              if (i === retries) {
+                // All retries exhausted — try fallback model once
+                const fallback = MODEL_FALLBACK[model];
+                if (fallback && !_isFallback) {
+                  console.warn(`Falling back from ${model} to ${fallback}`);
+                  return callAPI(prompt, { temperature, max_tokens, retries: 1, model: fallback, _isFallback: true });
+                }
+                throw new Error(`${errMsg} (model: ${model})`);
+              }
               await new Promise(r => setTimeout(r, 2000 * (i + 1)));
             }
           }
@@ -900,7 +922,7 @@ Extract patterns and return ONLY valid JSON:
   "winningPhrases": ["phrase from JD that should be echoed in resume"]
 }`;
 
-            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'qwen/qwen3-32b' });
+            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'llama-3.1-8b-instant' });
             let jdData = validateJDData(parseJSON(jdRaw));
             updateStage(1, { status: 'done', detail: `${jdData.mandatorySkills.length} required skills, ${jdData.niceToHave.length} nice-to-haves` });
 
@@ -992,7 +1014,7 @@ Return ONLY valid JSON:
   }
 }`;
 
-            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500 });
+            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500, model: 'openai/gpt-oss-120b' });
             let scoreData = parseJSON(scoreRaw);
             updateStage(2, { status: 'done', detail: `Score: ${scoreData.matchScore}% → ${scoreData.potentialScoreAfter}% potential` });
 
@@ -1207,7 +1229,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000 });
+            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000, model: 'openai/gpt-oss-120b' });
             let actionData = parseJSON(actionRaw);
             const actions = (actionData.actions || []).sort((a, b) => (a.priority || 99) - (b.priority || 99));
             updateStage(2, { status: 'done', detail: `${actions.length} targeted actions` });
@@ -1286,7 +1308,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000 });
+            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000, model: 'qwen/qwen3-32b' });
             let questionsData = parseJSON(questionsRaw);
             updateStage(4, { status: 'done', detail: `${questionsData.questions?.length || 0} questions across ${questionsData.prepDimensions?.length || 0} dimensions` });
 
@@ -1447,7 +1469,7 @@ Return ONLY valid JSON:
   "timingStrategy": "When and how to sequence outreach (2-3 sentences)"
 }`;
 
-            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000 }).then(raw => {
+            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000, model: 'openai/gpt-oss-120b' }).then(raw => {
               try { return parseJSON(raw); } catch(e) { console.warn('Networking parse failed:', e); return null; }
             }).catch(e => { console.warn('Networking call failed:', e); return null; });
 
@@ -1474,12 +1496,14 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const companiesRaw = await callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000 });
-            let companiesData = parseJSON(companiesRaw);
+            const companiesPromise = callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000, model: 'openai/gpt-oss-120b' }).then(raw => {
+              try { return parseJSON(raw); } catch(e) { console.warn('Companies parse failed:', e); return { companies: [] }; }
+            }).catch(e => { console.warn('Companies call failed:', e); return { companies: [] }; });
 
             prepResources = await prepSearchPromise;
             structuredPrep = prepResources; // This is now the categorized prep data
             const networkingData = await networkingPromise;
+            const companiesData = await companiesPromise;
 
             const companiesWithLinks = (companiesData.companies || []).map(c => ({
               ...c,
@@ -1553,7 +1577,15 @@ Return ONLY valid JSON:
         };
 
         const handlePayment = async () => {
-          alert('Payment integration coming soon. Proceeding to full analysis for now...');
+          const region = formData.region || 'americas';
+          const p = pricing[region]?.single || pricing.americas.single;
+          const confirmed = confirm(
+            `Unlock your full career intelligence report for ${p.display}?\n\n` +
+            `Includes: Optimized resume, ATS scan, interview prep, STAR stories, networking scripts, and similar companies.\n` +
+            (region === 'americas' ? `Plus a bonus analysis free for 15 days.` : `Launch price — regular ${pricing.india?.single?.note || '₹299'}.`) +
+            `\n\n(Payment integration coming soon — proceeding free for now)`
+          );
+          if (!confirmed) return;
           await generateFullAnalysis();
         };
 
@@ -1956,6 +1988,27 @@ ${companiesSection}
                 <div className="hero-tagline">craft your way in</div>
                 <div className="hero-underline" />
 
+                {/* Why not just ChatGPT? */}
+                <div style={{ maxWidth: 680, width: '100%', marginTop: 48, opacity: 0, animation: 'hFadeUp 0.5s ease-out 1.95s forwards' }}>
+                  <div style={{ textAlign: 'center', fontFamily: "'Outfit', sans-serif", fontSize: 13, fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase', color: '#555b55', marginBottom: 20 }}>
+                    Why not just ChatGPT it?
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>Multi-stage pipeline</div>
+                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>ChatGPT rewrites in one pass. We research the company, parse the JD, score your gaps, then rewrite — each stage informed by the last.</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>Consistent scoring</div>
+                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>ChatGPT gives different feedback every time. Our 6-category rubric scores consistently so you can track improvement across applications.</div>
+                    </div>
+                    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '16px 14px' }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#e4efd5', fontFamily: "'Outfit', sans-serif", marginBottom: 6 }}>6 deliverables, one click</div>
+                      <div style={{ fontSize: 12, color: '#737a73', lineHeight: 1.55 }}>Resume, ATS keywords, STAR stories, interview questions, networking scripts, and company matches — all coordinated, not six separate prompts.</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="hero-phases">
                   <div className="hero-phase">
                     <div className="phase-num">1</div>
@@ -2061,7 +2114,7 @@ Current user context:
 
 If you need one more detail to propose matches, ask ONE question with 4–6 options. Otherwise return results with 6 matches.`;
 
-                          const raw = await callAPI(system, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 1800 });
+                          const raw = await callAPI(system, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 1800 });
                           const obj = parseJSON(raw);
                           if(obj.mode === 'ask'){
                             setPfQuestion({ question: obj.question, options: obj.options || [] });
@@ -2119,7 +2172,7 @@ User context:
 Return results mode ONLY:
 {"mode":"results","matches":[{"company":"","role":"","rationale":"","competitiveness":"low|medium|high","careersUrl":""}]}`;
 
-                              const raw = await callAPI(prompt, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 2200 });
+                              const raw = await callAPI(prompt, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 2200 });
                               const obj = parseJSON(raw);
                               let matches = obj.matches || [];
                               const q = matches.slice(0,5).map(m => `${m.company} ${m.role} careers`);

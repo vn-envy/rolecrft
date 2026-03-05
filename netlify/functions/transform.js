@@ -23,17 +23,23 @@ function extractFirstJsonObject(raw) {
 }
 
 async function callGroq({ apiKey, model, prompt, temperature = 0.2, max_tokens = 4096, response_format }) {
+  // Model-specific system prompt tuning
+  let systemContent = "You are a strict JSON generator. Output ONLY one valid JSON object. " +
+    "No markdown, no code fences, no explanations, no extra text. " +
+    "The output MUST start with '{' and end with '}'. " +
+    "All strings must be properly escaped. Never use unescaped quotes inside string values.";
+
+  if (model === "openai/gpt-oss-120b") {
+    systemContent += " Be concise in all JSON string values — use the fewest words needed to convey meaning. Avoid filler phrases.";
+  }
+  if (model === "qwen/qwen3-32b") {
+    systemContent += " /no_think";
+  }
+
   const body = {
     model,
     messages: [
-      {
-        role: "system",
-        content:
-          "You are a strict JSON generator. Output ONLY one valid JSON object. " +
-          "No markdown, no code fences, no explanations, no extra text. " +
-          "The output MUST start with '{' and end with '}'. " +
-          "All strings must be properly escaped. Never use unescaped quotes inside string values."
-      },
+      { role: "system", content: systemContent },
       { role: "user", content: prompt }
     ],
     temperature,
@@ -141,7 +147,7 @@ exports.handler = async (event) => {
     }
 
     const temperature = typeof payload.temperature === "number" ? Math.min(Math.max(payload.temperature, 0), 1) : 0.2;
-    const max_tokens = typeof payload.max_tokens === "number" ? Math.min(Math.max(payload.max_tokens, 500), 8192) : 4096;
+    const max_tokens = typeof payload.max_tokens === "number" ? Math.min(Math.max(payload.max_tokens, 500), 12000) : 4096;
     const response_format = payload?.response_format;
 
     const modelText = await callGroq({ apiKey, model, prompt, temperature, max_tokens, response_format });
