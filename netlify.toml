@@ -12,3 +12,9 @@
 
 [functions]
   node_bundler = "esbuild"
+
+[functions."transform"]
+  timeout = 26
+
+[functions."search"]
+  timeout = 15
