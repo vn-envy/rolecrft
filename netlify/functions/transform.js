@@ -29,7 +29,7 @@ async function callGroq({ apiKey, model, prompt, temperature = 0.2, max_tokens =
     "All strings must be properly escaped. Never use unescaped quotes inside string values.";
 
   if (model === "openai/gpt-oss-120b") {
-    sysMsg += " Be concise — use the fewest words needed. Avoid filler phrases and repetition.";
+    sysMsg += " Be concise in all values. Avoid filler phrases, repetition, and unnecessary words.";
   }
   if (model === "qwen/qwen3-32b") {
     sysMsg += " /no_think";

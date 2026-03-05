@@ -13,7 +13,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
@@ -157,6 +156,7 @@
 
       /* ─── Dark: Star rating dim ──────────────────────────── */
       html[data-theme="dark"] .star-btn.dim { color: #30363d; }
+      html[data-theme="dark"] .kicker { color: #a3bf82; }
 
       /* Keep export/print light */
       @media print {
@@ -195,6 +195,7 @@
 
       /* Badge */
       .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+      .kicker { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #84a55b; margin-bottom: 4px; }
 
       /* Tabs */
       .tab-btn { position: relative; padding: 14px 20px; font-weight: 500; font-size: 14px; color: #6c757d; white-space: nowrap; transition: color 0.15s; }
@@ -297,7 +298,7 @@
       /* ═══ MOBILE RESPONSIVENESS FIXES ═══ */
       @media (max-width: 640px) {
         .score-ring { width: 80px !important; height: 80px !important; }
-        .score-ring svg { width: 80px !important; height: 80px !important; }
+        .score-ring svg { width: 80px !important; height: 80px !important; max-width: 100%; }
         .score-ring .value { font-size: 24px !important; }
         .tab-btn { padding: 12px 12px; font-size: 13px; } /* better tap targets */
         .tab-count { font-size: 9px; padding: 1px 5px; margin-left: 3px; }
@@ -313,7 +314,7 @@
       @media (max-width: 480px) {
         .tab-btn { padding: 10px 8px; font-size: 11px; }
         .score-ring { width: 68px !important; height: 68px !important; }
-        .score-ring svg { width: 68px !important; height: 68px !important; }
+        .score-ring svg { width: 68px !important; height: 68px !important; max-width: 100%; }
         .score-ring .value { font-size: 20px !important; }
       }
 
@@ -414,7 +415,7 @@
         const c = color || (s >= 75 ? '#22c55e' : s >= 55 ? '#f59e0b' : '#ef4444');
         return (
           <div className="score-ring" style={{ width: size, height: size }}>
-            <svg width={size} height={size}>
+            <svg width={size} height={size} viewBox={'0 0 ' + size + ' ' + size}>
               <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="currentColor" strokeWidth={stroke} style={{ color: 'var(--ring-track, #e9ecef)' }} />
               <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={c} strokeWidth={stroke}
                 strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
@@ -511,12 +512,10 @@
 
         const pricing = {
           americas: {
-            single: { price: 9, display: '$9', label: 'Single Analysis' },
-            triple: { price: 15, display: '$15', label: '3 Companies', savings: 'Save $12' }
+            single: { price: 15, display: '$15', label: 'Single Analysis' }
           },
           india: {
-            single: { price: 299, display: '₹299', label: 'Single Analysis' },
-            triple: { price: 799, display: '₹799', label: '3 Companies', savings: 'Save ₹98' }
+            single: { price: 199, display: '₹199', label: 'Single Analysis (launch)' }
           }
         };
 
@@ -673,12 +672,12 @@
               return found ? found.text : "";
             } catch (err) {
               clearTimeout(tid);
-              const msg = err.name === 'AbortError' ? 'Request timed out for ' + model : err.message;
+              const msg = err.name === 'AbortError' ? 'Request timed out (' + model + ')' : err.message;
               console.warn('callAPI [' + model + '] attempt ' + (i+1) + ': ' + msg);
               if (i === retries) {
                 const fb = FALLBACKS[model];
                 if (fb && !_fb) {
-                  console.warn('Falling back: ' + model + ' → ' + fb);
+                  console.warn('Falling back: ' + model + ' -> ' + fb);
                   return callAPI(prompt, { temperature: temperature, max_tokens: max_tokens, retries: 1, model: fb, _fb: true });
                 }
                 throw new Error(msg);
@@ -927,7 +926,7 @@ Extract patterns and return ONLY valid JSON:
   "winningPhrases": ["phrase from JD that should be echoed in resume"]
 }`;
 
-            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'qwen/qwen3-32b' });
+            const jdRaw = await callAPI(jdPrompt, { temperature: 0.1, max_tokens: 3000, model: 'llama-3.1-8b-instant' });
             let jdData = validateJDData(parseJSON(jdRaw));
             updateStage(1, { status: 'done', detail: `${jdData.mandatorySkills.length} required skills, ${jdData.niceToHave.length} nice-to-haves` });
 
@@ -942,56 +941,35 @@ COMPANY PROFILE: ${JSON.stringify(companyData)}
 JD REQUIREMENTS: ${JSON.stringify(jdData)}
 TARGET: ${formData.targetRole} at ${formData.targetCompany}
 
-═══ SCORING RUBRIC (100 points total, 8 categories) ═══
+═══ SCORING RUBRIC (100 points total) ═══
 
 CATEGORY 1 — MUST-HAVE COVERAGE (30 pts)
 JD mandatory skills to check:
 ${jdData.mandatorySkills.slice(0, 15).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
-For each skill: 2 pts if explicitly present with context, 1 pt if synonym/adjacent, 0 if absent.
-Score = sum of per-skill scores, scaled to /30. Count exact matches vs total.
+Per skill: 2 pts if explicitly present with context, 1 pt if synonym, 0 if absent. Scale sum to /30.
 
 CATEGORY 2 — RESPONSIBILITIES ALIGNMENT (12 pts)
-Compare resume bullets to these JD responsibility themes:
+JD responsibility themes:
 ${(jdData.responsibilityPatterns || []).slice(0, 6).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
-Score 2 pts per theme where resume shows direct evidence (max 12). Semantic similarity counts, not just keyword match.
+2 pts per theme with direct resume evidence (max 12). Semantic match counts.
 
 CATEGORY 3 — TONALITY FIT (8 pts)
-Analyze the JD's writing style (ownership vs collaborative, metrics-heavy vs narrative, mechanism-oriented vs outcome-oriented).
-- Style match (0-4): does the resume's language mirror the JD's top 2 tone signals?
-- Cues in context (0-2): does the resume use the JD's preferred verbs/nouns naturally?
-- Restraint (0-2): penalize if resume uses buzzwords, slogans, or tone the JD avoids.
+Analyze JD writing style. Style match (0-4): resume mirrors JD’s top 2 tone signals? Cues in context (0-2): JD preferred verbs/nouns used naturally? Restraint (0-2): penalize buzzwords/slogans JD avoids.
 
 CATEGORY 4 — IMPACT METRICS (15 pts)
-For each bullet, score the impact evidence:
-- Business/company level impact with numbers (revenue, market share, cost savings) = 3 pts
-- Product/team level with measurable outcome = 2 pts
-- Activity-only / task-level (did X, worked on Y, responsible for Z) = 0 pts
-Score = sum capped at 15. Note: "Reduced X by Y%" is strong. "Managed a team" without outcome is weak.
+Per bullet: business-level impact with numbers = 3 pts, product/team with outcome = 2 pts, task-only = 0 pts. Sum capped at 15.
 
 CATEGORY 5 — SENIORITY & SCOPE (10 pts)
-- Years of experience vs JD expectation (3 pts: match=3, within 2yr=2, off 3+=1)
-- Management/leadership scope alignment (3 pts: matches=3, partial=2, none=1)
-- Decision-making evidence matching JD seniority (2 pts)
-- Cross-functional / stakeholder scope (2 pts)
+YOE vs JD (3 pts), management scope alignment (3 pts), decision-making evidence (2 pts), cross-functional scope (2 pts).
 
 CATEGORY 6 — ATS STRUCTURE (10 pts)
-Deterministic checks:
-- Clear job titles with company names and dates (3 pts)
-- No tables/columns/graphics (ATS-hostile elements) (2 pts)
-- Professional summary present (2 pts)
-- Skills section with categorized technologies (2 pts)
-- Consistent date format and chronological order (1 pt)
+Clear titles+dates (3), no tables/columns (2), summary present (2), categorized skills section (2), consistent date format (1).
 
 CATEGORY 7 — DOMAIN & TOOLING (10 pts)
-- Count resume mentions of specific tools/technologies from the JD tech stack
-- Score = (tools mentioned in context / total JD tools) × 10
-- "Used Python for data analysis" scores; "Python" listed in skills-only scores half.
-- Domain match: same industry = +2 bonus (cap at 10)
+(JD tools mentioned in context / total JD tools) × 10. Tools in skills-only score half. Same-industry domain bonus +2 (cap 10).
 
 CATEGORY 8 — DIFFERENTIATORS (5 pts)
-- Unique achievements not typical of this role level (2 pts)
-- Evidence of initiative beyond job description (2 pts)  
-- Clear personal brand / unique positioning statement (1 pt)
+Unique achievements beyond role expectations (2), initiative beyond JD (2), personal brand or positioning (1).
 
 ═══ INSTRUCTIONS ═══
 1. Compute each category score with a brief justification
@@ -1004,14 +982,14 @@ Return ONLY valid JSON:
 {
   "matchScore": 58,
   "scoreBreakdown": {
-    "mustHaveCoverage": {"score": 18, "max": 30, "detail": "12 of 15 must-have skills found in context"},
-    "responsibilitiesAlignment": {"score": 8, "max": 12, "detail": "4 of 6 responsibility themes have evidence"},
-    "tonalityFit": {"score": 5, "max": 8, "detail": "Metrics-oriented tone matches JD; some generic phrasing penalized"},
-    "impactMetrics": {"score": 9, "max": 15, "detail": "6 of 10 bullets have measurable outcomes"},
-    "seniorityScope": {"score": 7, "max": 10, "detail": "YOE matches, leadership evidence present but thin"},
-    "atsStructure": {"score": 8, "max": 10, "detail": "Clean structure, missing skills categorization"},
-    "domainTooling": {"score": 6, "max": 10, "detail": "5 of 8 JD tools mentioned with context"},
-    "differentiators": {"score": 3, "max": 5, "detail": "One standout initiative, no unique positioning"}
+    "mustHaveCoverage": {"score": 18, "max": 30, "detail": "12 of 15 must-have skills found"},
+    "responsibilitiesAlignment": {"score": 8, "max": 12, "detail": "4 of 6 themes have evidence"},
+    "tonalityFit": {"score": 5, "max": 8, "detail": "Tone matches JD; some generic phrasing"},
+    "impactMetrics": {"score": 9, "max": 15, "detail": "6 of 10 bullets have outcomes"},
+    "seniorityScope": {"score": 7, "max": 10, "detail": "YOE matches, leadership thin"},
+    "atsStructure": {"score": 8, "max": 10, "detail": "Clean structure, missing skills groups"},
+    "domainTooling": {"score": 6, "max": 10, "detail": "5 of 8 tools in context"},
+    "differentiators": {"score": 3, "max": 5, "detail": "One standout initiative"}
   },
   "topGaps": [
     {"item": "Specific Skill or Area", "impact": "High", "reason": "Mentioned 4 times in JD, absent from resume", "category": "mustHaveCoverage"},
@@ -1036,7 +1014,7 @@ Return ONLY valid JSON:
   }
 }`;
 
-            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500 });
+            const scoreRaw = await callAPI(scorePrompt, { temperature: 0.1, max_tokens: 3500, model: 'openai/gpt-oss-120b' });
             let scoreData = parseJSON(scoreRaw);
             updateStage(2, { status: 'done', detail: `Score: ${scoreData.matchScore}% → ${scoreData.potentialScoreAfter}% potential` });
 
@@ -1251,7 +1229,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000 });
+            const actionRaw = await callAPI(actionPrompt, { temperature: 0.2, max_tokens: 5000, model: 'openai/gpt-oss-120b' });
             let actionData = parseJSON(actionRaw);
             const actions = (actionData.actions || []).sort((a, b) => (a.priority || 99) - (b.priority || 99));
             updateStage(2, { status: 'done', detail: `${actions.length} targeted actions` });
@@ -1330,7 +1308,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000 });
+            const questionsRaw = await callAPI(questionsPrompt, { temperature: 0.3, max_tokens: 6000, model: 'qwen/qwen3-32b' });
             let questionsData = parseJSON(questionsRaw);
             updateStage(4, { status: 'done', detail: `${questionsData.questions?.length || 0} questions across ${questionsData.prepDimensions?.length || 0} dimensions` });
 
@@ -1491,7 +1469,7 @@ Return ONLY valid JSON:
   "timingStrategy": "When and how to sequence outreach (2-3 sentences)"
 }`;
 
-            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000 }).then(raw => {
+            const networkingPromise = callAPI(networkingPrompt, { temperature: 0.3, max_tokens: 4000, model: 'openai/gpt-oss-120b' }).then(raw => {
               try { return parseJSON(raw); } catch(e) { console.warn('Networking parse failed:', e); return null; }
             }).catch(e => { console.warn('Networking call failed:', e); return null; });
 
@@ -1518,7 +1496,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-            const companiesRaw = await callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000 });
+            const companiesRaw = await callAPI(companiesPrompt, { temperature: 0.25, max_tokens: 3000, model: 'openai/gpt-oss-120b' });
             let companiesData = parseJSON(companiesRaw);
 
             prepResources = await prepSearchPromise;
@@ -1597,7 +1575,9 @@ Return ONLY valid JSON:
         };
 
         const handlePayment = async () => {
-          alert('Payment integration coming soon. Proceeding to full analysis for now...');
+          var p = pricing[formData.region] && pricing[formData.region].single;
+          if (!p) p = { display: '$15' };
+          if (!confirm('Unlock full report for ' + p.display + '?\n\nIncludes: optimized resume, ATS scan, interview prep, STAR stories, networking scripts.\n\n(Payment coming soon \u2014 proceeding free for now)')) return;
           await generateFullAnalysis();
         };
 
@@ -1622,56 +1602,39 @@ Return ONLY valid JSON:
           try {
             const r = fullResults.transformedResume;
             const clean = (s) => (s || '').replace(/\[SUGGESTED\]/g, '').replace(/\[(KEPT|IMPROVED|ADDED)\]\s*/g, '');
+            const esc = (s) => clean(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-            // Build HTML for pdf rendering
-            const resumeHTML = document.createElement('div');
-            resumeHTML.style.cssText = 'font-family: Calibri, Arial, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 28px; line-height: 1.5; font-size: 11pt; color: #1a1a1a; background: white;';
-            let h = '';
-            h += '<h1 style="text-align:center;font-size:20pt;margin:0 0 4px;letter-spacing:0.5px;color:#1a1a1a;">' + clean(r.name) + '</h1>';
-            h += '<div style="text-align:center;font-size:9pt;color:#555;margin-bottom:20px;">' + [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).join('  ·  ') + '</div>';
+            // Build resume HTML
+            var h = '';
+            h += '<h1 style="text-align:center;font-size:20pt;margin:0 0 4px;letter-spacing:0.5px;">' + esc(r.name) + '</h1>';
+            h += '<div style="text-align:center;font-size:9pt;color:#555;margin-bottom:20px;">' + [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).map(esc).join(' &middot; ') + '</div>';
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Summary</h2>';
-            h += '<div style="font-size:10pt;margin-bottom:12px;text-align:justify;">' + clean(r.summary) + '</div>';
+            h += '<div style="font-size:10pt;margin-bottom:14px;text-align:justify;line-height:1.5;">' + esc(r.summary) + '</div>';
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Experience</h2>';
             (r.experience || []).forEach(function(e) {
-              h += '<div style="margin-bottom:2px;"><span style="font-size:9pt;color:#666;float:right;">' + clean(e.duration) + '</span>';
-              h += '<div style="font-weight:700;font-size:10.5pt;display:inline;">' + clean(e.title) + '</div>';
-              h += '<div style="font-size:10pt;color:#333;">' + clean(e.company) + '</div></div>';
+              h += '<div style="margin-bottom:2px;overflow:hidden;"><span style="font-size:9pt;color:#666;float:right;">' + esc(e.duration) + '</span>';
+              h += '<div style="font-weight:700;font-size:10.5pt;">' + esc(e.title) + '</div>';
+              h += '<div style="font-size:10pt;color:#333;">' + esc(e.company) + '</div></div>';
               h += '<ul style="margin:4px 0 14px 18px;padding:0;">';
-              (e.achievements || []).forEach(function(a) {
-                h += '<li style="font-size:10pt;margin-bottom:3px;line-height:1.4;">' + clean(a) + '</li>';
-              });
+              (e.achievements || []).forEach(function(a) { h += '<li style="font-size:10pt;margin-bottom:3px;line-height:1.45;">' + esc(a) + '</li>'; });
               h += '</ul>';
             });
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Skills</h2>';
-            h += '<div style="font-size:10pt;line-height:1.6;">' + (r.skills || []).join('  ·  ') + '</div>';
+            h += '<div style="font-size:10pt;line-height:1.6;">' + (r.skills || []).map(esc).join(' &middot; ') + '</div>';
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Education</h2>';
             (r.education || []).forEach(function(ed) {
-              h += '<div><strong style="font-size:10pt;">' + (ed.degree || '') + '</strong><br><span style="font-size:9pt;color:#555;">' + (ed.institution || '') + (ed.year ? ' · ' + ed.year : '') + '</span></div>';
+              h += '<div style="margin-bottom:6px;"><strong style="font-size:10pt;">' + esc(ed.degree || '') + '</strong><br><span style="font-size:9pt;color:#555;">' + esc(ed.institution || '') + (ed.year ? ' &middot; ' + esc(ed.year) : '') + '</span></div>';
             });
-            resumeHTML.innerHTML = h;
 
-            // Temporarily add to DOM for rendering
-            document.body.appendChild(resumeHTML);
-            var fname = clean(r.name).replace(/\s+/g, '_') + '_' + formData.targetCompany + '_Resume.pdf';
-
-            if (window.html2pdf) {
-              html2pdf().set({
-                margin: [10, 8, 10, 8],
-                filename: fname,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-              }).from(resumeHTML).save().then(function() {
-                document.body.removeChild(resumeHTML);
-              });
-            } else {
-              // Fallback: print-to-PDF via new window
-              document.body.removeChild(resumeHTML);
-              var w = window.open('', '_blank');
-              w.document.write('<html><head><title>Resume</title><style>body{font-family:Calibri,Arial,sans-serif;max-width:720px;margin:0 auto;padding:40px;font-size:11pt;color:#1a1a1a;}</style></head><body>' + h + '</body></html>');
-              w.document.close();
-              w.print();
-            }
+            // Open print-friendly window (works on all phones — Save as PDF from print dialog)
+            var w = window.open('', '_blank', 'width=800,height=1000');
+            if (!w) { alert('Please allow popups to download your resume as PDF.'); return; }
+            w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(r.name) + ' - Resume</title>');
+            w.document.write('<style>@page{size:A4;margin:16mm 14mm;}body{font-family:Calibri,Arial,Helvetica,sans-serif;max-width:720px;margin:0 auto;padding:32px 24px;color:#1a1a1a;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body{padding:0;}}</style>');
+            w.document.write('</head><body>' + h);
+            w.document.write('<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>');
+            w.document.write('</body></html>');
+            w.document.close();
           } catch (err) {
             alert('Export failed: ' + err.message);
           }
@@ -1709,7 +1672,7 @@ Return ONLY valid JSON:
               try {
                 scoreSection = `<h3>Score Breakdown</h3><table>
 <tr><th>Category</th><th>Score</th><th>Weight</th></tr>
-${Object.entries(r.scoreBreakdown).map(([k, v]) => `<tr><td>${esc(k)}</td><td><strong>${v?.score ?? '—'}/10</strong></td><td>${v?.weight ?? '—'}%</td></tr>`).join('')}
+${Object.entries(r.scoreBreakdown).map(([k, v]) => `<tr><td>${esc(k)}</td><td><strong>${v && v.score != null ? v.score : '—'}/${v && v.max != null ? v.max : '?'}</strong></td><td>${v && v.detail ? esc(v.detail) : '—'}</td></tr>`).join('')}
 </table>`;
               } catch(e) { scoreSection = ''; }
             }
@@ -2118,7 +2081,7 @@ Current user context:
 
 If you need one more detail to propose matches, ask ONE question with 4–6 options. Otherwise return results with 6 matches.`;
 
-                          const raw = await callAPI(system, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 1800 });
+                          const raw = await callAPI(system, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 1800 });
                           const obj = parseJSON(raw);
                           if(obj.mode === 'ask'){
                             setPfQuestion({ question: obj.question, options: obj.options || [] });
@@ -2176,7 +2139,7 @@ User context:
 Return results mode ONLY:
 {"mode":"results","matches":[{"company":"","role":"","rationale":"","competitiveness":"low|medium|high","careersUrl":""}]}`;
 
-                              const raw = await callAPI(prompt, { model: 'qwen/qwen3-32b', temperature: 0.2, max_tokens: 2200 });
+                              const raw = await callAPI(prompt, { model: 'llama-3.3-70b-versatile', temperature: 0.2, max_tokens: 2200 });
                               const obj = parseJSON(raw);
                               let matches = obj.matches || [];
                               const q = matches.slice(0,5).map(m => `${m.company} ${m.role} careers`);
@@ -2574,7 +2537,7 @@ Return results mode ONLY:
                         <div className="space-y-2.5">
                           {[
                             { key: 'mustHaveCoverage', label: 'Must-Have Skills', color: 'bg-accent-500' },
-                            { key: 'responsibilitiesAlignment', label: 'Responsibilities Fit', color: 'bg-good-500' },
+                            { key: 'responsibilitiesAlignment', label: 'Responsibilities', color: 'bg-good-500' },
                             { key: 'tonalityFit', label: 'Tonality Fit', color: 'bg-purple-500' },
                             { key: 'impactMetrics', label: 'Impact & Metrics', color: 'bg-warn-500' },
                             { key: 'seniorityScope', label: 'Seniority & Scope', color: 'bg-cyan-500' },
@@ -2819,7 +2782,7 @@ Return results mode ONLY:
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
                                 {[
                                   { key: 'mustHaveCoverage', label: 'Must-Have Skills', color: 'bg-accent-500' },
-                                  { key: 'responsibilitiesAlignment', label: 'Responsibilities Fit', color: 'bg-good-500' },
+                                  { key: 'responsibilitiesAlignment', label: 'Responsibilities', color: 'bg-good-500' },
                                   { key: 'tonalityFit', label: 'Tonality Fit', color: 'bg-purple-500' },
                                   { key: 'impactMetrics', label: 'Impact & Metrics', color: 'bg-warn-500' },
                                   { key: 'seniorityScope', label: 'Seniority & Scope', color: 'bg-cyan-500' },
@@ -3225,7 +3188,7 @@ Return results mode ONLY:
                                   {tierActions.map((a) => {
                                     const globalIdx = fullResults.actions.indexOf(a);
                                     const isChecked = completedActions.has(globalIdx);
-                                    const catLabels = { mustHaveCoverage: 'Skills', responsibilitiesAlignment: 'Fit', tonalityFit: 'Tone', impactMetrics: 'Impact', seniorityScope: 'Seniority', atsStructure: 'ATS', domainTooling: 'Tooling', differentiators: 'Edge' };
+                                    const catLabels = { mustHaveCoverage: 'Skills', responsibilitiesAlignment: 'Fit', tonalityFit: 'Tone', impactMetrics: 'Impact', seniorityScope: 'Scope', atsStructure: 'ATS', domainTooling: 'Tools', differentiators: 'Edge' };
                                     return (
                                       <div key={globalIdx} className={`p-4 bg-white transition-colors ${isChecked ? 'bg-good-50/30' : ''}`}>
                                         <div className="flex items-start gap-3 w-full min-w-0">
