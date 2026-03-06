@@ -298,7 +298,7 @@
       /* ═══ MOBILE RESPONSIVENESS FIXES ═══ */
       @media (max-width: 640px) {
         .score-ring { width: 80px !important; height: 80px !important; }
-        .score-ring svg { width: 80px !important; height: 80px !important; max-width: 100%; }
+        .score-ring svg { width: 80px !important; height: 80px !important; }
         .score-ring .value { font-size: 24px !important; }
         .tab-btn { padding: 12px 12px; font-size: 13px; } /* better tap targets */
         .tab-count { font-size: 9px; padding: 1px 5px; margin-left: 3px; }
@@ -314,7 +314,7 @@
       @media (max-width: 480px) {
         .tab-btn { padding: 10px 8px; font-size: 11px; }
         .score-ring { width: 68px !important; height: 68px !important; }
-        .score-ring svg { width: 68px !important; height: 68px !important; max-width: 100%; }
+        .score-ring svg { width: 68px !important; height: 68px !important; }
         .score-ring .value { font-size: 20px !important; }
       }
 
@@ -454,6 +454,8 @@
         const [showPaywall, setShowPaywall] = useState(false);
         const [selectedPlan, setSelectedPlan] = useState('single');
         const [editingBullet, setEditingBullet] = useState(null); // { expIdx, achIdx }
+        const [editingSummary, setEditingSummary] = useState(false);
+        const [editingSkills, setEditingSkills] = useState(false);
         const [showFeedback, setShowFeedback] = useState(false);
         const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
         const [feedbackToast, setFeedbackToast] = useState(false);
@@ -515,7 +517,7 @@
             single: { price: 15, display: '$15', label: 'Single Analysis' }
           },
           india: {
-            single: { price: 199, display: '₹199', label: 'Single Analysis (launch)' }
+            single: { price: 199, display: '₹199', label: 'Launch Price' }
           }
         };
 
@@ -637,12 +639,7 @@
 
         // ─── API call with timeout + model fallback ──────────────
 
-        const FALLBACKS = {
-          'openai/gpt-oss-120b': 'llama-3.3-70b-versatile',
-          'qwen/qwen3-32b': 'llama-3.3-70b-versatile',
-          'llama-3.1-8b-instant': 'llama-3.3-70b-versatile',
-          'llama-3.3-70b-versatile': 'qwen/qwen3-32b'
-        };
+        const FALLBACKS = { 'openai/gpt-oss-120b': 'llama-3.3-70b-versatile', 'qwen/qwen3-32b': 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant': 'llama-3.3-70b-versatile', 'llama-3.3-70b-versatile': 'qwen/qwen3-32b' };
 
         const callAPI = async (prompt, options) => {
           const o = options || {};
@@ -652,7 +649,6 @@
           const model = o.model || 'qwen/qwen3-32b';
           const _fb = o._fb || false;
           const fullPrompt = prompt + '\n\nCRITICAL: Output must be a single valid JSON object starting with "{" and ending with "}". No text before or after. No markdown fences.';
-
           for (let i = 0; i <= retries; i++) {
             const ctrl = new AbortController();
             const tid = setTimeout(function(){ ctrl.abort(); }, 25000);
@@ -676,10 +672,7 @@
               console.warn('callAPI [' + model + '] attempt ' + (i+1) + ': ' + msg);
               if (i === retries) {
                 const fb = FALLBACKS[model];
-                if (fb && !_fb) {
-                  console.warn('Falling back: ' + model + ' -> ' + fb);
-                  return callAPI(prompt, { temperature: temperature, max_tokens: max_tokens, retries: 1, model: fb, _fb: true });
-                }
+                if (fb && !_fb) { console.warn('Fallback: ' + model + ' -> ' + fb); return callAPI(prompt, { temperature: temperature, max_tokens: max_tokens, retries: 1, model: fb, _fb: true }); }
                 throw new Error(msg);
               }
               await new Promise(function(r){ setTimeout(r, 1500 * (i + 1)); });
@@ -688,6 +681,16 @@
         };
 
         const parseJSON = (raw) => extractJsonObject(raw);
+
+        // R1: Compute ATS + HM dual scores from 8 subscores
+        function computeDualScores(breakdown) {
+          if (!breakdown) return { atsScore: 0, hmScore: 0, clearance: 'Grounded' };
+          var g = function(k) { var d = breakdown[k]; return d ? (d.score / d.max) * 100 : 0; };
+          var ats = Math.round(g('mustHaveCoverage') * 0.40 + g('atsStructure') * 0.25 + g('domainTooling') * 0.20 + g('responsibilitiesAlignment') * 0.15);
+          var hm = Math.round(g('impactMetrics') * 0.30 + g('seniorityScope') * 0.25 + g('tonalityFit') * 0.20 + g('differentiators') * 0.15 + g('responsibilitiesAlignment') * 0.10);
+          var clearance = (ats >= 80 && hm >= 75) ? 'Cleared' : (ats < 65 || hm < 60) ? 'Grounded' : 'Conditional';
+          return { atsScore: ats, hmScore: hm, clearance: clearance };
+        }
 
         // ─── Web search helper ──────────────────────────────────
 
@@ -944,32 +947,30 @@ TARGET: ${formData.targetRole} at ${formData.targetCompany}
 ═══ SCORING RUBRIC (100 points total) ═══
 
 CATEGORY 1 — MUST-HAVE COVERAGE (30 pts)
-JD mandatory skills to check:
-${jdData.mandatorySkills.slice(0, 15).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
-Per skill: 2 pts if explicitly present with context, 1 pt if synonym, 0 if absent. Scale sum to /30.
+JD mandatory skills: ${jdData.mandatorySkills.slice(0, 15).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
+Per skill: 2 pts if present with context, 1 pt if synonym, 0 if absent. Scale sum to /30.
 
 CATEGORY 2 — RESPONSIBILITIES ALIGNMENT (12 pts)
-JD responsibility themes:
-${(jdData.responsibilityPatterns || []).slice(0, 6).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
-2 pts per theme with direct resume evidence (max 12). Semantic match counts.
+JD themes: ${(jdData.responsibilityPatterns || []).slice(0, 6).map((s, i) => `  ${i+1}. ${s}`).join('\n')}
+2 pts per theme with direct evidence (max 12).
 
 CATEGORY 3 — TONALITY FIT (8 pts)
-Analyze JD writing style. Style match (0-4): resume mirrors JD’s top 2 tone signals? Cues in context (0-2): JD preferred verbs/nouns used naturally? Restraint (0-2): penalize buzzwords/slogans JD avoids.
+Style match (0-4): resume mirrors JD tone? Cues in context (0-2): JD verbs/nouns used? Restraint (0-2): penalize buzzwords.
 
 CATEGORY 4 — IMPACT METRICS (15 pts)
-Per bullet: business-level impact with numbers = 3 pts, product/team with outcome = 2 pts, task-only = 0 pts. Sum capped at 15.
+Per bullet: business-level+numbers=3, product/team+outcome=2, task-only=0. Sum capped at 15.
 
 CATEGORY 5 — SENIORITY & SCOPE (10 pts)
-YOE vs JD (3 pts), management scope alignment (3 pts), decision-making evidence (2 pts), cross-functional scope (2 pts).
+YOE match (3), management scope (3), decision-making evidence (2), cross-functional scope (2).
 
 CATEGORY 6 — ATS STRUCTURE (10 pts)
-Clear titles+dates (3), no tables/columns (2), summary present (2), categorized skills section (2), consistent date format (1).
+Titles+dates (3), no tables/columns (2), summary present (2), categorized skills (2), consistent dates (1).
 
 CATEGORY 7 — DOMAIN & TOOLING (10 pts)
-(JD tools mentioned in context / total JD tools) × 10. Tools in skills-only score half. Same-industry domain bonus +2 (cap 10).
+(JD tools in context / total JD tools) × 10. Skills-only=half. Same-industry +2 (cap 10).
 
 CATEGORY 8 — DIFFERENTIATORS (5 pts)
-Unique achievements beyond role expectations (2), initiative beyond JD (2), personal brand or positioning (1).
+Unique achievements (2), initiative beyond JD (2), positioning statement (1).
 
 ═══ INSTRUCTIONS ═══
 1. Compute each category score with a brief justification
@@ -982,13 +983,13 @@ Return ONLY valid JSON:
 {
   "matchScore": 58,
   "scoreBreakdown": {
-    "mustHaveCoverage": {"score": 18, "max": 30, "detail": "12 of 15 must-have skills found"},
-    "responsibilitiesAlignment": {"score": 8, "max": 12, "detail": "4 of 6 themes have evidence"},
-    "tonalityFit": {"score": 5, "max": 8, "detail": "Tone matches JD; some generic phrasing"},
-    "impactMetrics": {"score": 9, "max": 15, "detail": "6 of 10 bullets have outcomes"},
+    "mustHaveCoverage": {"score": 18, "max": 30, "detail": "12/15 must-haves found"},
+    "responsibilitiesAlignment": {"score": 8, "max": 12, "detail": "4/6 themes evidenced"},
+    "tonalityFit": {"score": 5, "max": 8, "detail": "Tone matches; some generic phrasing"},
+    "impactMetrics": {"score": 9, "max": 15, "detail": "6/10 bullets have outcomes"},
     "seniorityScope": {"score": 7, "max": 10, "detail": "YOE matches, leadership thin"},
-    "atsStructure": {"score": 8, "max": 10, "detail": "Clean structure, missing skills groups"},
-    "domainTooling": {"score": 6, "max": 10, "detail": "5 of 8 tools in context"},
+    "atsStructure": {"score": 8, "max": 10, "detail": "Clean structure"},
+    "domainTooling": {"score": 6, "max": 10, "detail": "5/8 tools in context"},
     "differentiators": {"score": 3, "max": 5, "detail": "One standout initiative"}
   },
   "topGaps": [
@@ -1236,25 +1237,34 @@ Return ONLY valid JSON:
 
             updateStage(3, { status: 'active' });
 
-            const starPrompt = `Create detailed STAR interview stories from the candidate's experience. Each story should be usable in a behavioral interview at ${formData.targetCompany}.
+            const starPrompt = `Create detailed STAR interview stories (120-150 words each) from the candidate's experience for behavioral interviews at ${formData.targetCompany}.
 
 RESUME EXPERIENCE: ${JSON.stringify(resumeData.resume.experience)}
 COMPANY INTERVIEW FOCUS: ${companyData.interviewFocus}
 CULTURAL TONE: ${companyData.culturalTone}
 
-For each major achievement, create a story. Situation and Action MUST each be 2-3 sentences (40-60 words).
+Each story must total 120-150 words across S/T/A/R. Include method ("by doing X"), outcome, and scale.
+For each story, also provide:
+- metricMath: how the candidate can calculate/verify the metric they'd cite
+- spokenVersion: a 3-sentence verbal summary (30-40 words) for quick interview delivery
 
 Return ONLY valid JSON:
 {
   "stories": [
     {
       "achievement": "Brief title (5-8 words)",
-      "situation": "2-3 sentences of context (40-60 words)",
-      "task": "Your specific responsibility (1-2 sentences)",
-      "action": "Steps you took with specifics (2-3 sentences, 40-60 words)",
-      "result": "Quantified outcome (1-2 sentences)",
+      "situation": "2-3 sentences setting context (40-50 words)",
+      "task": "Specific responsibility (20-30 words)",
+      "action": "Steps taken with method specifics (40-50 words)",
+      "result": "Quantified outcome with scale (20-30 words)",
       "skills": ["Skill1", "Skill2"],
-      "bestFor": "Type of interview question this answers"
+      "bestFor": "Type of interview question this answers",
+      "metricMath": {
+        "primaryMetric": "What was measured (e.g., latency reduction)",
+        "calculation": "Formula: (old - new) / old x 100",
+        "numbersToVerify": ["Baseline before change", "Team size", "Timeline"]
+      },
+      "spokenVersion": "In 30 seconds: I did X at Y, which resulted in Z. The key was [method]."
     }
   ]
 }`;
@@ -1575,9 +1585,8 @@ Return ONLY valid JSON:
         };
 
         const handlePayment = async () => {
-          var p = pricing[formData.region] && pricing[formData.region].single;
-          if (!p) p = { display: '$15' };
-          if (!confirm('Unlock full report for ' + p.display + '?\n\nIncludes: optimized resume, ATS scan, interview prep, STAR stories, networking scripts.\n\n(Payment coming soon \u2014 proceeding free for now)')) return;
+          var p = (pricing[formData.region] || {}).single || { display: '$15' };
+          if (!confirm('Unlock full report for ' + p.display + '?\n\nOptimized resume, ATS scan, interview prep, STAR stories, networking scripts.\n\n(Payment coming soon)')) return;
           await generateFullAnalysis();
         };
 
@@ -1603,13 +1612,11 @@ Return ONLY valid JSON:
             const r = fullResults.transformedResume;
             const clean = (s) => (s || '').replace(/\[SUGGESTED\]/g, '').replace(/\[(KEPT|IMPROVED|ADDED)\]\s*/g, '');
             const esc = (s) => clean(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-            // Build resume HTML
             var h = '';
-            h += '<h1 style="text-align:center;font-size:20pt;margin:0 0 4px;letter-spacing:0.5px;">' + esc(r.name) + '</h1>';
+            h += '<h1 style="text-align:center;font-size:20pt;margin:0 0 4px;">' + esc(r.name) + '</h1>';
             h += '<div style="text-align:center;font-size:9pt;color:#555;margin-bottom:20px;">' + [r.contact.email, r.contact.phone, r.contact.location, r.contact.linkedin].filter(Boolean).map(esc).join(' &middot; ') + '</div>';
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Summary</h2>';
-            h += '<div style="font-size:10pt;margin-bottom:14px;text-align:justify;line-height:1.5;">' + esc(r.summary) + '</div>';
+            h += '<div style="font-size:10pt;margin-bottom:14px;line-height:1.5;">' + esc(r.summary) + '</div>';
             h += '<h2 style="font-size:10pt;text-transform:uppercase;letter-spacing:1.5px;border-bottom:1.5px solid #1a1a1a;padding-bottom:3px;margin:16px 0 8px;">Experience</h2>';
             (r.experience || []).forEach(function(e) {
               h += '<div style="margin-bottom:2px;overflow:hidden;"><span style="font-size:9pt;color:#666;float:right;">' + esc(e.duration) + '</span>';
@@ -1625,19 +1632,13 @@ Return ONLY valid JSON:
             (r.education || []).forEach(function(ed) {
               h += '<div style="margin-bottom:6px;"><strong style="font-size:10pt;">' + esc(ed.degree || '') + '</strong><br><span style="font-size:9pt;color:#555;">' + esc(ed.institution || '') + (ed.year ? ' &middot; ' + esc(ed.year) : '') + '</span></div>';
             });
-
-            // Open print-friendly window (works on all phones — Save as PDF from print dialog)
             var w = window.open('', '_blank', 'width=800,height=1000');
             if (!w) { alert('Please allow popups to download your resume as PDF.'); return; }
-            w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(r.name) + ' - Resume</title>');
-            w.document.write('<style>@page{size:A4;margin:16mm 14mm;}body{font-family:Calibri,Arial,Helvetica,sans-serif;max-width:720px;margin:0 auto;padding:32px 24px;color:#1a1a1a;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@media print{body{padding:0;}}</style>');
-            w.document.write('</head><body>' + h);
-            w.document.write('<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script>');
-            w.document.write('</body></html>');
+            w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>' + esc(r.name) + '</title>');
+            w.document.write('<style>@page{size:A4;margin:16mm 14mm;}body{font-family:Calibri,Arial,sans-serif;max-width:720px;margin:0 auto;padding:32px 24px;color:#1a1a1a;}@media print{body{padding:0;}}</style>');
+            w.document.write('</head><body>' + h + '<script>window.onload=function(){setTimeout(function(){window.print();},400);};<\/script></body></html>');
             w.document.close();
-          } catch (err) {
-            alert('Export failed: ' + err.message);
-          }
+          } catch (err) { alert('Export failed: ' + err.message); }
         };
 
         const exportSTARToCSV = () => {
@@ -1672,7 +1673,7 @@ Return ONLY valid JSON:
               try {
                 scoreSection = `<h3>Score Breakdown</h3><table>
 <tr><th>Category</th><th>Score</th><th>Weight</th></tr>
-${Object.entries(r.scoreBreakdown).map(([k, v]) => `<tr><td>${esc(k)}</td><td><strong>${v && v.score != null ? v.score : '—'}/${v && v.max != null ? v.max : '?'}</strong></td><td>${v && v.detail ? esc(v.detail) : '—'}</td></tr>`).join('')}
+${Object.entries(r.scoreBreakdown).map(([k, v]) => `<tr><td>${esc(k)}</td><td><strong>${v && v.score != null ? v.score : '—'}/${v && v.max ? v.max : '?'}</strong></td><td>${v && v.detail ? esc(v.detail) : ''}</td></tr>`).join('')}
 </table>`;
               } catch(e) { scoreSection = ''; }
             }
@@ -1979,31 +1980,51 @@ ${companiesSection}
                 <div className="hero-phases">
                   <div className="hero-phase">
                     <div className="phase-num">1</div>
-                    <div className="phase-title">Fit Score</div>
-                    <div className="phase-desc">See exactly where you stand against any role</div>
+                    <div className="phase-title">Runway Check</div>
+                    <div className="phase-desc">ATS + Hiring Manager dual score with clearance status</div>
                   </div>
                   <div className="hero-phase">
                     <div className="phase-num">2</div>
-                    <div className="phase-title">Resume & ATS</div>
-                    <div className="phase-desc">AI-optimized for every company's tech stack</div>
+                    <div className="phase-title">Hangar</div>
+                    <div className="phase-desc">Build & tune your resume with JD-gap fixes</div>
                   </div>
                   <div className="hero-phase">
                     <div className="phase-num">3</div>
-                    <div className="phase-title">Interview Prep</div>
-                    <div className="phase-desc">Predicted questions with rehearsed STAR stories</div>
+                    <div className="phase-title">Flight Plan</div>
+                    <div className="phase-desc">STAR stories with metric math & prep roadmap</div>
                   </div>
                   <div className="hero-phase">
                     <div className="phase-num">4</div>
-                    <div className="phase-title">Career Strategy</div>
-                    <div className="phase-desc">Networking scripts, referrals & action plan</div>
+                    <div className="phase-title">Launch Pad</div>
+                    <div className="phase-desc">Networking scripts, similar companies & action plan</div>
+                  </div>
+                </div>
+
+                <div style={{maxWidth:720,width:'100%',marginTop:48,opacity:0,animation:'hFadeUp 0.5s ease-out 2.8s forwards'}}>
+                  <div style={{textAlign:'center',fontFamily:"'Outfit',sans-serif",fontSize:13,fontWeight:600,letterSpacing:2,textTransform:'uppercase',color:'#555b55',marginBottom:20}}>
+                    Why not just ChatGPT it?
+                  </div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:14}}>
+                    <div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12,padding:'16px 14px'}}>
+                      <div style={{fontSize:14,fontWeight:700,color:'#e4efd5',fontFamily:"'Outfit',sans-serif",marginBottom:6}}>8-stage pipeline</div>
+                      <div style={{fontSize:12,color:'#737a73',lineHeight:1.55}}>ChatGPT rewrites in one pass. We research the company, parse the JD, score your gaps across 8 dimensions, then rewrite — each stage informed by the last.</div>
+                    </div>
+                    <div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12,padding:'16px 14px'}}>
+                      <div style={{fontSize:14,fontWeight:700,color:'#e4efd5',fontFamily:"'Outfit',sans-serif",marginBottom:6}}>Dual ATS + HM scoring</div>
+                      <div style={{fontSize:12,color:'#737a73',lineHeight:1.55}}>Not just keywords. We score for both ATS filters and hiring manager impression, with a clearance status you can act on.</div>
+                    </div>
+                    <div style={{background:'rgba(255,255,255,0.03)',border:'1px solid rgba(255,255,255,0.06)',borderRadius:12,padding:'16px 14px'}}>
+                      <div style={{fontSize:14,fontWeight:700,color:'#e4efd5',fontFamily:"'Outfit',sans-serif",marginBottom:6}}>6 deliverables, one click</div>
+                      <div style={{fontSize:12,color:'#737a73',lineHeight:1.55}}>Resume, ATS keywords, STAR stories with metric math, interview questions, networking scripts — all coordinated, not six separate prompts.</div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="hero-cta">
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                      <button onClick={() => { setAppMode('analysis'); setShowHero(false); setStep(1); window.scrollTo(0, 0); }}>Start deep-dive analysis →</button>
+                      <button onClick={() => { setAppMode('analysis'); setShowHero(false); setStep(1); window.scrollTo(0, 0); }}>Start Runway Check →</button>
                       <button onClick={() => { setAppMode('pathfinder'); setShowHero(false); window.scrollTo(0, 0); }} style={{background:'#161b22', border:'1px solid rgba(255,255,255,0.14)'}}>
-                        Try Pathfinder (no JD needed)
+                        Try Pathfinder — no JD needed
                       </button>
                     </div>
                 </div>
@@ -2520,15 +2541,35 @@ Return results mode ONLY:
                   <div className="card-elevated p-6 md:p-8">
                     <h2 className="text-xl font-bold text-ink-800 mb-6">Your Resume Analysis</h2>
 
-                    <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
-                      <ScoreRing score={previewData.score} size={120} />
-                      <div className="flex-1 text-center md:text-left">
-                        <div className="text-sm text-ink-500 mb-1">Current match score</div>
-                        <div className="text-ink-400 text-sm mt-2">
-                          Potential after optimization: <span className="text-good-600 font-bold text-lg">{previewData.potentialScore}%</span>
+                    {(() => {
+                      const dual = computeDualScores(previewData.scoreBreakdown);
+                      const clrColor = dual.clearance === 'Cleared' ? 'bg-good-100 text-good-700 border-good-200' : dual.clearance === 'Grounded' ? 'bg-bad-100 text-bad-700 border-bad-200' : 'bg-warn-100 text-warn-700 border-warn-200';
+                      const clrIcon = dual.clearance === 'Cleared' ? '\u2705' : dual.clearance === 'Grounded' ? '\u26d4' : '\u26a0\ufe0f';
+                      return (
+                        <div className="mb-6">
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 mb-4">
+                            <div className="text-center">
+                              <ScoreRing score={dual.atsScore} size={100} />
+                              <div className="text-xs font-semibold text-ink-500 mt-2">ATS Score</div>
+                              <div className="text-[10px] text-ink-400">Will you pass the filter?</div>
+                            </div>
+                            <div className="text-center">
+                              <ScoreRing score={dual.hmScore} size={100} />
+                              <div className="text-xs font-semibold text-ink-500 mt-2">HM Score</div>
+                              <div className="text-[10px] text-ink-400">Will they want to interview you?</div>
+                            </div>
+                          </div>
+                          <div className="flex justify-center">
+                            <span className={'inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-bold border ' + clrColor}>
+                              {clrIcon} {dual.clearance}
+                            </span>
+                          </div>
+                          <div className="text-center text-ink-400 text-sm mt-3">
+                            Potential after optimization: <span className="text-good-600 font-bold text-lg">{previewData.potentialScore}%</span>
+                          </div>
                         </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
 
                     {/* Score Breakdown */}
                     {previewData.scoreBreakdown && (
@@ -2694,10 +2735,10 @@ Return results mode ONLY:
                     <div className="px-6 pt-5 pb-0 hidden sm:block bg-white">
                       <div className="flex items-center justify-between max-w-lg mx-auto">
                         {[
-                          { phase: 1, id: 'analysis', label: 'Fit Score', icon: '①' },
-                          { phase: 2, id: 'resume', label: 'Resume & ATS', icon: '②' },
-                          { phase: 3, id: 'star', label: 'Interview Prep', icon: '③' },
-                          { phase: 4, id: 'actions', label: 'Career Strategy', icon: '④' },
+                          { phase: 1, id: 'analysis', label: 'Runway Check', icon: '①' },
+                          { phase: 2, id: 'resume', label: 'Hangar', icon: '②' },
+                          { phase: 3, id: 'star', label: 'Flight Plan', icon: '③' },
+                          { phase: 4, id: 'actions', label: 'Launch Pad', icon: '④' },
                         ].map((p, i, arr) => (
                           <React.Fragment key={p.id}>
                             <button onClick={() => setActiveTab(p.id)}
@@ -2714,10 +2755,10 @@ Return results mode ONLY:
                     {/* Tab Bar */}
                     <div className="flex border-b border-ink-200 overflow-x-auto sticky top-0 z-20 bg-white backdrop-blur-md" style={{ background: theme === 'dark' ? 'rgba(22,27,34,0.85)' : 'rgba(255,255,255,0.85)' }}>
                       {[
-                        { id: 'analysis', label: 'Fit Score' },
-                        { id: 'resume', label: 'Resume & ATS', count: fullResults.atsCheck ? `${fullResults.atsCheck.atsScore}%` : null },
-                        { id: 'star', label: 'Interview Prep', count: (fullResults.interviewQuestions?.length || 0) + (fullResults.starStories?.length || 0) },
-                        { id: 'actions', label: 'Career Strategy', count: (fullResults.actions?.length || 0) + (fullResults.similarCompanies?.length || 0) },
+                        { id: 'analysis', label: '\u2708 Runway Check' },
+                        { id: 'resume', label: '\ud83d\udd27 Hangar', count: fullResults.atsCheck ? `${fullResults.atsCheck.atsScore}%` : null },
+                        { id: 'star', label: '\ud83d\udccd Flight Plan', count: (fullResults.interviewQuestions?.length || 0) + (fullResults.starStories?.length || 0) },
+                        { id: 'actions', label: '\ud83d\ude80 Launch Pad', count: (fullResults.actions?.length || 0) + (fullResults.similarCompanies?.length || 0) },
                       ].map(tab => (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                           className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}>
@@ -2764,16 +2805,29 @@ Return results mode ONLY:
                       {/* ── Analysis Tab ── */}
                       {activeTab === 'analysis' && (
                         <div className="fade-in space-y-6">
-                          <div className="flex flex-col md:flex-row items-center gap-6">
-                            <div className="flex items-center gap-4">
-                              <ScoreRing score={fullResults.matchScore} size={100} />
-                              <div className="text-ink-400 text-2xl">→</div>
-                              <ScoreRing score={fullResults.potentialScore} size={100} color="#22c55e" />
-                            </div>
-                            <div className="text-center md:text-left">
-                              <p className="text-sm text-ink-500">Current → Potential after optimization</p>
-                            </div>
-                          </div>
+                          {(() => {
+                            const dual = computeDualScores(fullResults.scoreBreakdown);
+                            const clrColor = dual.clearance === 'Cleared' ? 'bg-good-100 text-good-700 border-good-200' : dual.clearance === 'Grounded' ? 'bg-bad-100 text-bad-700 border-bad-200' : 'bg-warn-100 text-warn-700 border-warn-200';
+                            const clrIcon = dual.clearance === 'Cleared' ? '\u2705' : dual.clearance === 'Grounded' ? '\u26d4' : '\u26a0\ufe0f';
+                            return (
+                              <div className="flex flex-col sm:flex-row items-center gap-6">
+                                <div className="flex items-center gap-6">
+                                  <div className="text-center">
+                                    <ScoreRing score={dual.atsScore} size={90} />
+                                    <div className="text-xs font-semibold text-ink-500 mt-1">ATS</div>
+                                  </div>
+                                  <div className="text-center">
+                                    <ScoreRing score={dual.hmScore} size={90} />
+                                    <div className="text-xs font-semibold text-ink-500 mt-1">HM</div>
+                                  </div>
+                                </div>
+                                <div className="text-center sm:text-left">
+                                  <span className={'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border ' + clrColor}>{clrIcon} {dual.clearance}</span>
+                                  <p className="text-xs text-ink-400 mt-1">Potential: <span className="text-good-600 font-bold">{fullResults.potentialScore}%</span></p>
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Score Breakdown */}
                           {fullResults.scoreBreakdown && (
@@ -2855,7 +2909,7 @@ Return results mode ONLY:
                             <div />
                             <span className="phase-nav-indicator">Phase 1 of 4</span>
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('resume'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              Resume & ATS <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                              Hangar <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                             </button>
                           </div>
                         </div>
@@ -2865,7 +2919,7 @@ Return results mode ONLY:
                       {activeTab === 'resume' && (
                         <div className="fade-in space-y-5">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                            <h2 className="text-xl font-bold text-ink-800">Resume & ATS Optimization</h2>
+                            <h2 className="text-xl font-bold text-ink-800">\ud83d\udd27 Hangar \u2014 Resume & ATS</h2>
                             <button onClick={exportResumeToDoc}
                               className="px-5 py-2 bg-accent-600 text-white text-sm font-medium rounded-lg hover:bg-accent-700 transition-colors">
                               Download PDF
@@ -3007,7 +3061,28 @@ Return results mode ONLY:
                             <div className="space-y-5">
                               <div>
                                 <h4 className="text-xs font-bold uppercase tracking-widest text-ink-500 mb-2">Professional Summary</h4>
-                                <p className="text-sm text-ink-700 leading-relaxed">{fullResults.transformedResume.summary}</p>
+                                {editingSummary ? (
+                                  <div>
+                                    <textarea className="w-full px-3 py-2 border border-accent-400 rounded-lg text-sm resize-none focus:ring-2 focus:ring-accent-400" rows={3}
+                                      defaultValue={fullResults.transformedResume.summary}
+                                      ref={function(el) { if (el) el.focus(); }}
+                                      onBlur={function(e) {
+                                        setFullResults(function(prev) {
+                                          var u = Object.assign({}, prev);
+                                          u.transformedResume = Object.assign({}, u.transformedResume, { summary: e.target.value });
+                                          return u;
+                                        });
+                                        setEditingSummary(false);
+                                      }} />
+                                    <div className="text-[10px] text-ink-400 mt-1">Press Tab or click outside to save</div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-ink-700 leading-relaxed cursor-pointer hover:bg-ink-50 rounded px-1 -mx-1 transition-colors"
+                                    onClick={function() { setEditingSummary(true); }}
+                                    title="Click to edit summary">
+                                    {fullResults.transformedResume.summary}
+                                  </p>
+                                )}
                               </div>
 
                               <div>
@@ -3066,6 +3141,12 @@ Return results mode ONLY:
                             </div>
                           )}
 
+                          {/* Flight Plan Link */}
+                          <div className="bg-accent-50 border border-accent-200 rounded-lg p-4 flex items-center justify-between">
+                            <p className="text-sm text-accent-700">Want help quantifying impact for interviews? See your STAR stories with metric math.</p>
+                            <button onClick={function(){ setActiveTab('star'); }} className="text-sm font-semibold text-accent-600 hover:text-accent-700 whitespace-nowrap ml-3">Flight Plan \u2192</button>
+                          </div>
+
                           {/* Change Log */}
                           {fullResults.changeLog?.length > 0 && (
                             <div className="bg-ink-50 border border-ink-200 rounded-lg p-5">
@@ -3117,11 +3198,11 @@ Return results mode ONLY:
                           {/* Bottom Phase Navigation */}
                           <div className="phase-nav">
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('analysis'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Fit Score
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Runway
                             </button>
                             <span className="phase-nav-indicator">Phase 2 of 4</span>
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('star'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              Interview Prep <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                              Flight Plan <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                             </button>
                           </div>
                         </div>
@@ -3130,7 +3211,7 @@ Return results mode ONLY:
                       {/* ── Action Plan Tab (Features A + C + D) ── */}
                       {activeTab === 'actions' && (
                         <div className="fade-in space-y-6">
-                          <h2 className="text-xl font-bold text-ink-800">Career Strategy</h2>
+                          <h2 className="text-xl font-bold text-ink-800">🚀 Launch Pad</h2>
 
                           {/* ═══ SCORE SIMULATOR (Feature C) ═══ */}
                           {fullResults.actions?.length > 0 && (() => {
@@ -3438,7 +3519,7 @@ Return results mode ONLY:
                           {/* Bottom Phase Navigation */}
                           <div className="phase-nav">
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('star'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Interview Prep
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Hangar
                             </button>
                             <span className="phase-nav-indicator">Phase 4 of 4</span>
                             <div />
@@ -3451,7 +3532,7 @@ Return results mode ONLY:
                         <div className="fade-in space-y-6">
                           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                             <div>
-                              <h2 className="text-xl font-bold text-ink-800">Interview Prep</h2>
+                              <h2 className="text-xl font-bold text-ink-800">\ud83d\udccd Flight Plan</h2>
                               <p className="text-xs text-ink-400 mt-0.5">Structured preparation plan for {formData.targetRole} at {formData.targetCompany}</p>
                             </div>
                             <button onClick={exportSTARToCSV}
@@ -3651,6 +3732,40 @@ Return results mode ONLY:
                                         <span key={i} className="pill bg-accent-100 text-accent-700">{skill}</span>
                                       ))}
                                     </div>
+
+                                    {story.spokenVersion && (
+                                      <div className="mt-3 p-3 bg-accent-50 border border-accent-100 rounded-lg">
+                                        <div className="text-[10px] font-bold uppercase tracking-widest text-accent-600 mb-1">30-Second Version</div>
+                                        <p className="text-sm text-ink-700 italic">{story.spokenVersion}</p>
+                                      </div>
+                                    )}
+
+                                    {story.metricMath && (
+                                      <details className="mt-3 border border-ink-200 rounded-lg overflow-hidden">
+                                        <summary className="flex items-center justify-between px-3 py-2 bg-ink-100 cursor-pointer text-xs font-semibold text-ink-600 hover:bg-ink-200">
+                                          Metric Math & Verification
+                                          <span className="text-ink-400 group-open:rotate-90">\u25b8</span>
+                                        </summary>
+                                        <div className="p-3 bg-white space-y-2">
+                                          {story.metricMath.primaryMetric && (
+                                            <div><span className="text-[10px] font-bold text-ink-400">METRIC:</span> <span className="text-sm text-ink-700">{story.metricMath.primaryMetric}</span></div>
+                                          )}
+                                          {story.metricMath.calculation && (
+                                            <div><span className="text-[10px] font-bold text-ink-400">FORMULA:</span> <code className="text-sm text-accent-700 font-mono bg-ink-50 px-2 py-0.5 rounded">{story.metricMath.calculation}</code></div>
+                                          )}
+                                          {story.metricMath.numbersToVerify && story.metricMath.numbersToVerify.length > 0 && (
+                                            <div>
+                                              <span className="text-[10px] font-bold text-ink-400">VERIFY BEFORE INTERVIEW:</span>
+                                              <ul className="mt-1 space-y-1">
+                                                {story.metricMath.numbersToVerify.map(function(n, ni) {
+                                                  return <li key={ni} className="text-sm text-ink-600 flex items-center gap-2"><span className="text-ink-300">\u25a2</span> {n}</li>;
+                                                })}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </details>
+                                    )}
                                   </div>
                                 </details>
                               ))}
@@ -3752,11 +3867,11 @@ Return results mode ONLY:
                           {/* Bottom Phase Navigation */}
                           <div className="phase-nav">
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('resume'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Resume & ATS
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Runway
                             </button>
                             <span className="phase-nav-indicator">Phase 3 of 4</span>
                             <button className="phase-nav-btn" onClick={() => { setActiveTab('actions'); window.scrollTo({top: 0, behavior: 'smooth'}); }}>
-                              Career Strategy <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                              Launch Pad <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                             </button>
                           </div>
                         </div>
