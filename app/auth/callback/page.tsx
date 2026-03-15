@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
 
-export default function AuthCallbackPage() {
-  const router = useRouter();
+function AuthCallbackContent() {
   const searchParams = useSearchParams();
   const supabase = createClient();
 
@@ -19,15 +18,29 @@ export default function AuthCallbackPage() {
         await supabase.auth.exchangeCodeForSession(code);
       }
 
-     window.location.replace(next);
+      window.location.replace(next);
     };
 
     void run();
-  }, [router, searchParams, supabase]);
+  }, [searchParams, supabase]);
 
   return (
     <main className="page-shell">
       <section className="card">Completing sign in...</section>
     </main>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="page-shell">
+          <section className="card">Completing sign in...</section>
+        </main>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
   );
 }
