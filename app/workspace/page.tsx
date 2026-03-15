@@ -15,7 +15,7 @@ export default function WorkspacePage() {
         data: { user }
       } = await supabase.auth.getUser();
 
-      router.replace(user ? '/app/roles' : '/');
+      router.replace(user ? '/app/roles/new' : '/');
     };
 
     void routeUser();
