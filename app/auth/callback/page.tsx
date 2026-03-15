@@ -19,7 +19,7 @@ export default function AuthCallbackPage() {
         await supabase.auth.exchangeCodeForSession(code);
       }
 
-      router.replace(next);
+     window.location.replace(next);
     };
 
     void run();
