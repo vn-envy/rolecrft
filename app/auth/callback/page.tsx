@@ -12,7 +12,7 @@ function AuthCallbackContent() {
   useEffect(() => {
     const run = async () => {
       const code = searchParams.get('code');
-      const next = searchParams.get('next') ?? '/workspace';
+      const next = searchParams.get('next') ?? '/app/roles/new';
 
       if (code) {
         await supabase.auth.exchangeCodeForSession(code);
