@@ -161,66 +161,57 @@
       // PERSONA PROMPTS (embedded for Sprint 0 — move to edge function later)
       // ═══════════════════════════════════════════════════════
 
-      const JOSHUA_SYSTEM = `You are Joshua — an experienced career strategist with a background spanning Flipkart, Meesho, and Zepto. You've reviewed thousands of resumes, sat on hiring panels at Series A through Series D companies, and know what Indian hiring managers actually look for versus what JDs say they want.
+      const JOSHUA_SYSTEM = `You are Joshua — an experienced career strategist with a background spanning Flipkart, Meesho, and Zepto. You've sat on hiring panels at Series A through D companies and know what Indian hiring managers actually look for.
 
-VOICE: Direct, specific, never hedging. Use concrete Indian market references when relevant. Never use filler phrases. Never use bullet points or lists in conversation.
+VOICE: Direct, specific, never hedging. Concrete Indian market references when relevant. No filler phrases. No bullet points or lists — pure conversational sentences. No markdown formatting (**bold**, etc) — just plain text.
 
-MESSAGE FORMAT — CRITICAL:
-- Keep each message to 1-3 sentences MAX. Be concise.
-- If you have more to say, use ||| as a delimiter between separate thoughts. The app will render each part as a separate chat bubble with a natural typing delay.
-- Example: "You're a real contender at 78.||| But there's one gap worth closing — data pipeline architecture. The JD mentions it three times and your resume doesn't cover it.||| Let me rewrite those bullets."
-- NEVER send more than 3 parts separated by |||. Most messages should be 1 part.
+MESSAGE FORMAT: Keep each message to 1-3 sentences MAX. Most messages should be 1-2 sentences.
 
-EMOTIONAL CALIBRATION: If anxious — ground with specifics. If overconfident — challenge with a concrete gap. If lost — narrow to one next action.
+EMOTIONAL CALIBRATION: Anxious→ground with specifics. Overconfident→name the gap. Lost→one next action only.
 
-CONVERSATION BOUNDARIES:
-- You ONLY help with: career search strategy, resume analysis, fit scoring, interview prep, job targeting.
-- If someone asks for general knowledge, coding help, creative writing, or anything outside career guidance — redirect: "That's outside my lane. I'm here for your career search. Want to get back to [current task]?"
-- Do NOT provide detailed interview answers, salary negotiation scripts, or job search beyond what the current stage requires.
-- In DIAGNOSTIC stage: only ask the 5 questions and summarize. Don't jump ahead to resume advice.
+BOUNDARIES: You ONLY help with career search, resume, fit scoring, interview prep, job targeting. Anything else: "That's outside my lane — I'm here for your career search. Want to get back to [current task]?" In DIAGNOSTIC stage: ONLY ask the 6 questions. Don't give advice yet.
 
-DIAGNOSTIC STAGE: Ask ONE question at a time. After each answer, acknowledge briefly (half a sentence) then ask the next.
+NOTE: You may be working alongside Adi (Hinglish co-pilot). If the user previously spoke with Adi, you can see that history. Don't repeat questions Adi already asked — pick up from where they left off. If all diagnostic questions are answered, move to the summary.
 
-Your 5 questions:
+DIAGNOSTIC: Ask ONE question per message. Brief acknowledgment (half sentence) then next question.
+
+Your 6 questions (ask in this order, skip any already answered):
 1. "What's bringing you here today — actively hunting, exploring, or somewhere in between?"
-2. "Got a resume you've used recently, or are we starting from scratch?"
-3. "When you think about your next role — clear picture or still forming?"
-4. "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?"
-5. "Any internship, project, or freelance work — even something small?"
+2. "Quick background — what's your highest education and how many years of work experience do you have?"
+3. "What kind of roles have you been in, or what field are you coming from?"
+4. "When you think about your next role — clear picture or still forming?"
+5. "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?"
+6. "Got a resume you've used recently, or are we starting from scratch?"
 
-After all 5: summarize in 2-3 sentences what you've learned, then tell them to drop their resume. Be specific to what they told you.
+After all 6: summarize in 2-3 sentences, then tell them to drop their resume. Be specific to what they told you.
 
-Start with a 1-sentence intro and question 1.`;
+Start with 1-sentence intro and Q1.`;
 
-      const ADI_SYSTEM = `Tu Adi hai — BITS se nikla, Razorpay mein 3 saal kiya, ab ek Bengaluru Series B startup mein. Tu woh dost hai jo referral de deta hai aur honestly bolta hai ki company join karne layak hai ya nahi.
+      const ADI_SYSTEM = `Main Adi hoon — BITS se nikla, Razorpay mein 3 saal kiya, ab ek Bengaluru Series B startup mein hoon. Main woh dost hoon jo referral deta hai aur honestly bolta hai ki company join karne layak hai ya nahi.
 
-VOICE: Natural Hindi-English code-switching. Never formal Hindi. Never English-dominant. "Dekh" before hard truths. "Bhai/Yaar" as natural address. Short sentences. Technical terms in English. Romanized Hindi only.
+VOICE: Natural Hindi-English code-switching. Friendly but respectful — use "tum/tumhara" not "tu/tera". "Bhai/Yaar" as warm address. "Dekh" before honest assessments. Short sentences. Technical terms in English. Romanized Hindi only — never Devanagari. No markdown formatting (**bold**, etc) — plain text only.
 
-MESSAGE FORMAT — CRITICAL:
-- Har message 1-3 sentences MAX. Concise rakh.
-- Agar zyada bolna hai, ||| use kar parts mein split karne ke liye. App alag bubbles mein dikhayega with typing delay.
-- Example: "Tu genuine contender hai 78 pe.||| Ek gap hai — data pipeline architecture. JD mein 3 baar mention hai, tera resume mein zero.||| Chal fix karte hain."
-- 3 se zyada parts KABHI nahi. Most messages 1 part hone chahiye.
+MESSAGE FORMAT: Har message 1-3 sentences MAX. Concise rakho. Most messages 1-2 sentences.
 
-EMOTIONAL CALIBRATION: Anxiety → "Sun, tension mat le" + specifics. Overconfidence → "Ek second ruk — yeh gap dekh". Lost → "Chal simple rakh — pehle yeh ek cheez kar."
+EMOTIONAL CALIBRATION: Anxiety → "Arre tension mat lo" + specifics. Overconfidence → "Ek second ruko — yeh gap dekho pehle". Lost → "Simple rakho — pehle yeh ek cheez karo."
 
-CONVERSATION BOUNDARIES:
-- SIRF career search: resume, fit scoring, interview prep, job targeting.
-- Koi aur cheez pooche (coding help, general knowledge, creative writing) toh redirect kar: "Yaar woh mera area nahi hai. Career search mein help karta hoon. [current task] pe wapas chalein?"
-- Diagnostic stage mein SIRF 5 questions aur summarize. Resume advice pe mat jaao abhi.
+BOUNDARIES: SIRF career search: resume, fit scoring, interview prep, job targeting. Koi aur cheez pooche toh: "Yaar woh mera area nahi hai. Career search mein help karta hoon. [current task] pe wapas chalein?" Diagnostic mein SIRF 6 questions — advice baad mein.
 
-DIAGNOSTIC STAGE: Ek ek question puch. Answer ke baad chhota acknowledgment (half sentence) phir next question.
+NOTE: Tum Joshua (English co-pilot) ke saath kaam kar rahe ho. Agar user pehle Joshua se baat kar chuka hai, woh history dikhai degi. Jo questions Joshua ne already puch liye hain, woh mat pucho — wahan se aage badho. Agar sab diagnostic questions ho gaye hain, seedha summary do.
 
-5 questions:
-1. "Chal bata — actively dhundh raha hai ya exploring?"
-2. "Resume kitna recent hai? Last kab update kiya?"
-3. "Next role clear hai ya soch raha hai?"
-4. "Sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply karein?"
-5. "Koi internship, project, freelance kiya hai? Chota bhi chalega."
+DIAGNOSTIC: Ek ek question pucho. Chhota acknowledgment, phir next question.
 
-5 ke baad: 2-3 sentences mein summarize, phir bol resume daal de. Specifics use kar jo unhone bataya.
+6 questions (isi order mein, skip karo jo already answered hain):
+1. "Chal bata — actively dhundh rahe ho ya bas exploring?"
+2. "Pehle yeh bata — education kya hai aur kitne saal ka work experience hai?"
+3. "Kis type ke roles mein rahe ho, ya konsa field hai tumhara?"
+4. "Next role ke baare mein clear picture hai ya abhi soch rahe ho?"
+5. "Ab tak sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply karein?"
+6. "Resume hai recently use kiya hua, ya scratch se banana padega?"
 
-Intro (1 line) + Q1 se shuru.`;
+6 ke baad: 2-3 sentences mein summarize karo, phir bolo resume daal do. Specifics use karo jo unhone bataya.
+
+Intro (1 line) + Q1 se shuru karo.`;
 
 
       // ═══════════════════════════════════════════════════════
@@ -288,6 +279,76 @@ Intro (1 line) + Q1 se shuru.`;
 
       // Session cost tracker
       let sessionCost = 0;
+
+      // ═══════════════════════════════════════════════════════
+      // SPRINT 1: ENGINE FUNCTIONS (Groq, scoring, parsing)
+      // ═══════════════════════════════════════════════════════
+
+      function extractJsonObject(raw) {
+        const text = (raw || "").trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
+        const s = text.indexOf("{"), e = text.lastIndexOf("}");
+        if (s === -1 || e === -1 || e <= s) throw new Error("No JSON in response");
+        return JSON.parse(text.slice(s, e + 1));
+      }
+
+      const GROQ_FALLBACKS = { 'openai/gpt-oss-120b': 'llama-3.3-70b-versatile', 'qwen/qwen3-32b': 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant': 'llama-3.3-70b-versatile' };
+      async function callGroq(prompt, opts = {}) {
+        const { temperature = 0.2, max_tokens = 4096, model = 'qwen/qwen3-32b', retries = 2, _fb = false } = opts;
+        const fp = prompt + '\n\nCRITICAL: Output ONLY a single valid JSON object.';
+        for (let i = 0; i <= retries; i++) {
+          const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 25000);
+          try {
+            const res = await fetch("/.netlify/functions/transform", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: fp, temperature, max_tokens, model }), signal: ctrl.signal });
+            clearTimeout(tid); const text = await res.text(); let data; try { data = JSON.parse(text); } catch { data = { error: text }; }
+            if (!res.ok) throw new Error(data?.error || 'API ' + res.status);
+            const found = (data.content || []).find(c => c.type === "text"); return found ? found.text : "";
+          } catch (err) {
+            clearTimeout(tid); const msg = err.name === 'AbortError' ? 'Timeout' : err.message;
+            if (i === retries) { const fb = GROQ_FALLBACKS[model]; if (fb && !_fb) return callGroq(prompt, { ...opts, model: fb, retries: 1, _fb: true }); throw new Error(msg); }
+            await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+          }
+        }
+      }
+
+      function formatSearchContext(sr) {
+        if (!sr) return ''; let ctx = '\n=== WEB SEARCH ===\n';
+        Object.entries(sr).forEach(([q, items]) => { ctx += `QUERY: "${q}"\n`; items.forEach((r, i) => { ctx += `  [${i + 1}] ${r.title}\n      ${r.snippet}\n      ${r.url}\n`; }); ctx += '\n'; }); return ctx;
+      }
+
+      function runATSCheck(resumeObj, jdData) {
+        const rt = [resumeObj.summary || '', ...(resumeObj.experience || []).flatMap(e => [e.title, e.company, ...(e.achievements || [])].filter(Boolean)), ...(resumeObj.skills || []), ...(resumeObj.education || []).map(e => `${e.degree} ${e.institution}`)].join(' ').toLowerCase();
+        const norm = s => s.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9+#.\s-]/g, '').trim();
+        const aliases = { 'javascript': ['js', 'javascript'], 'typescript': ['ts', 'typescript'], 'python': ['python', 'py'], 'machine learning': ['ml', 'machine learning'], 'amazon web services': ['aws', 'amazon web services'], 'google cloud platform': ['gcp', 'google cloud'], 'kubernetes': ['k8s', 'kubernetes'], 'postgresql': ['postgres', 'postgresql'], 'react.js': ['react', 'reactjs'], 'node.js': ['node', 'nodejs'], 'docker': ['docker', 'containerization'], 'agile': ['agile', 'scrum', 'kanban'] };
+        const aLookup = {}; Object.entries(aliases).forEach(([c, al]) => al.forEach(a => { aLookup[a] = c; }));
+        function found(kw) { const n = norm(kw); if (rt.includes(n)) return true; const ws = n.split(/\s+/).filter(w => w.length > 2); if (ws.length > 1 && ws.every(w => rt.includes(w))) return true; const can = aLookup[n]; if (can && (aliases[can] || []).some(a => rt.includes(a))) return true; return false; }
+        const mand = (jdData.mandatorySkills || []).map(s => { const c = s.replace(/\s*\(.*?\)\s*/g, '').trim(); return { skill: c, found: found(c) }; });
+        const nice = (jdData.niceToHave || []).map(s => { const c = s.replace(/\s*\(.*?\)\s*/g, '').trim(); return { skill: c, found: found(c) }; });
+        const mf = mand.filter(m => m.found).length, mt = mand.length, nf = nice.filter(n => n.found).length, nt = nice.length;
+        return { atsScore: Math.round((mt > 0 ? mf / mt : 1) * 70 + (nt > 0 ? nf / nt : 1) * 20 + 10), mandatory: mand, niceToHave: nice, mandatoryFound: mf, mandatoryTotal: mt, missingCritical: mand.filter(m => !m.found).map(m => m.skill) };
+      }
+
+      function computeDualScores(bd) {
+        if (!bd) return { atsScore: 0, hmScore: 0, clearance: 'Grounded' };
+        const g = k => { const d = bd[k]; return d ? (d.score / d.max) * 100 : 0; };
+        const ats = Math.round(g('mustHaveCoverage') * .40 + g('atsStructure') * .25 + g('domainTooling') * .20 + g('responsibilitiesAlignment') * .15);
+        const hm = Math.round(g('impactMetrics') * .30 + g('seniorityScope') * .25 + g('tonalityFit') * .20 + g('differentiators') * .15 + g('responsibilitiesAlignment') * .10);
+        return { atsScore: ats, hmScore: hm, clearance: (ats >= 75 && hm >= 70) ? 'Cleared' : (ats < 50 || hm < 45) ? 'Grounded' : 'Conditional' };
+      }
+
+      function validateCompanyData(d) { if (!d.techStack || d.techStack.length < 2) d.techStack = d.techStack || ["Not specified"]; if (!d.coreValues || d.coreValues.length < 2) d.coreValues = d.coreValues || ["Not specified"]; if (!d.culturalTone) d.culturalTone = "professional"; if (!d.emphasize) d.emphasize = ["relevant experience"]; if (!d.commonChallenges) d.commonChallenges = []; if (!d.redFlags) d.redFlags = []; return d; }
+      function validateJDData(d) { if (!d.mandatorySkills || d.mandatorySkills.length < 2) d.mandatorySkills = d.mandatorySkills || []; if (!d.actionVerbs || d.actionVerbs.length < 2) d.actionVerbs = ["Led", "Built", "Designed", "Improved"]; if (!d.niceToHave) d.niceToHave = []; if (!d.responsibilityPatterns) d.responsibilityPatterns = []; return d; }
+
+      async function parseResumeFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['pdf', 'docx', 'doc', 'txt'].includes(ext)) throw new Error('Use PDF, DOCX, or TXT.');
+        let text = '';
+        if (ext === 'txt') { text = await file.text(); }
+        else if (ext === 'docx' || ext === 'doc') { const ab = await file.arrayBuffer(); const r = await mammoth.extractRawText({ arrayBuffer: ab }); text = r.value; }
+        else if (ext === 'pdf') { const ab = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: ab }).promise; const pages = []; for (let i = 1; i <= pdf.numPages; i++) { const pg = await pdf.getPage(i); const ct = await pg.getTextContent(); pages.push(ct.items.map(it => it.str).join(' ')); } text = pages.join('\n\n'); }
+        text = text.trim();
+        if (text.length < 20) throw new Error('Could not extract text — may be a scanned image.');
+        return text;
+      }
 
 
       // ═══════════════════════════════════════════════════════
@@ -376,6 +437,69 @@ Intro (1 line) + Q1 se shuru.`;
               {[0, 0.15, 0.3].map(d => (
                 <div key={d} className="typing-dot" style={{ animation: `dotPulse 1.2s ease-in-out ${d}s infinite` }} />
               ))}
+            </div>
+          </div>
+        );
+      }
+
+
+      // ═══════════════════════════════════════════════════════
+      // FIT SNAPSHOT CARD (inline artifact)
+      // ═══════════════════════════════════════════════════════
+
+      function FitSnapshotCard({ data }) {
+        if (!data) return null;
+        const { score, atsScore, hmScore, clearance, gaps, strengths, categories, potential } = data;
+        const cl = clearance === 'Cleared' ? 'var(--color-success)' : clearance === 'Grounded' ? 'var(--color-danger)' : 'var(--color-warning)';
+        return (
+          <div className="msg-in" style={{ padding: '0 16px 0 52px' }}>
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-lg)', padding: 16, borderLeft: '3px solid var(--color-primary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-primary)' }}>FIT SNAPSHOT</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: 'var(--color-primary)' }}>{score}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: cl + '18', color: cl }}>{clearance}</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
+                {[['ATS', atsScore], ['HM', hmScore]].map(([label, val]) => (
+                  <div key={label} style={{ flex: '1 1 50px', textAlign: 'center', padding: 5, background: 'var(--color-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>{label}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: val >= 65 ? 'var(--color-success)' : 'var(--color-warning)' }}>{val}</div>
+                  </div>
+                ))}
+                {categories && Object.entries(categories).slice(0, 3).map(([k, v]) => (
+                  <div key={k} style={{ flex: '1 1 50px', textAlign: 'center', padding: 5, background: 'var(--color-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)' }}>
+                    <div style={{ fontSize: 8, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{k.replace(/([A-Z])/g, ' $1').trim().split(' ').slice(0, 2).join(' ')}</div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: (v.score / v.max) >= 0.7 ? 'var(--color-success)' : 'var(--color-warning)' }}>{v.score}/{v.max}</div>
+                  </div>
+                ))}
+              </div>
+              {gaps && gaps.length > 0 && (
+                <div style={{ background: 'var(--color-accent-light)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-accent)', marginBottom: 3 }}>GAPS</div>
+                  {gaps.slice(0, 3).map((g, i) => <div key={i} style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 1 }}>{g.item} — {g.reason}</div>)}
+                </div>
+              )}
+              {strengths && strengths.length > 0 && (
+                <div style={{ background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 3 }}>STRENGTHS</div>
+                  {(Array.isArray(strengths) ? strengths : [strengths]).slice(0, 3).map((s, i) => <div key={i} style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 1 }}>{typeof s === 'string' ? s : s.item || ''}</div>)}
+                </div>
+              )}
+              {potential && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-text-muted)' }}>Potential after optimization: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-primary)' }}>{potential}</span></div>}
+            </div>
+          </div>
+        );
+      }
+
+      // Status/progress message in chat
+      function StatusBubble({ text, loading }) {
+        return (
+          <div className="msg-in" style={{ display: 'flex', justifyContent: 'center', padding: '4px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500, background: 'var(--color-elevated)', border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-full)', padding: '4px 14px' }}>
+              {loading && <div style={{ width: 10, height: 10, border: '2px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />}
+              {text}
             </div>
           </div>
         );
@@ -672,281 +796,276 @@ Intro (1 line) + Q1 se shuru.`;
       // CONVERSATION PAGE (main product view)
       // ═══════════════════════════════════════════════════════
 
-      function ConversationPage({ user, persona, onSignOut, onBack }) {
+
+      function ConversationPage({ user, initialPersona, onSignOut, onBack }) {
         const [messages, setMessages] = useState([]);
         const [input, setInput] = useState('');
         const [isStreaming, setIsStreaming] = useState(false);
         const [conversationId, setConversationId] = useState(null);
+        const [activePersona, setActivePersona] = useState(initialPersona);
+        const [switchCount, setSwitchCount] = useState(0);
+        const MAX_SWITCHES = 2;
+        const [stage, setStage] = useState('diagnostic');
+        const [resumeText, setResumeText] = useState('');
+        const [jdText, setJdText] = useState('');
+        const [workspaceId, setWorkspaceId] = useState(null);
+        const [fitData, setFitData] = useState(null);
+        const [analysisStatus, setAnalysisStatus] = useState('');
+        const [uploadingFile, setUploadingFile] = useState(false);
+        const [showPasteResume, setShowPasteResume] = useState(false);
         const bottomRef = useRef(null);
         const inputRef = useRef(null);
+        const fileInputRef = useRef(null);
 
-        const systemPrompt = persona === 'joshua' ? JOSHUA_SYSTEM : ADI_SYSTEM;
+        const getSysPrompt = () => activePersona === 'joshua' ? JOSHUA_SYSTEM : ADI_SYSTEM;
+        useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming, analysisStatus]);
+        useEffect(() => { if (stage !== 'analyzing') inputRef.current?.focus(); }, [stage]);
 
-        useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
-        useEffect(() => { inputRef.current?.focus(); }, []);
-
-        // ─── Fix 1: Load conversation filtered by PERSONA, not just any conversation ───
         useEffect(() => {
           async function init() {
-            const { data } = await supabase
-              .from('conversations')
-              .select('*')
-              .eq('user_id', user.id)
-              .eq('persona', persona)  // <-- Filter by current persona
-              .order('created_at', { ascending: false })
-              .limit(1);
-
+            const { data } = await supabase.from('conversations').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
             if (data && data.length > 0 && data[0].messages.length > 0) {
-              setConversationId(data[0].id);
-              setMessages(data[0].messages);
+              setConversationId(data[0].id); setMessages(data[0].messages); setStage(data[0].stage || 'diagnostic');
+              const ps = data[0].messages.filter(m => m.role === 'assistant').map(m => m.persona);
+              let sw = 0; for (let i = 1; i < ps.length; i++) { if (ps[i] && ps[i-1] && ps[i] !== ps[i-1]) sw++; } setSwitchCount(sw);
             } else {
-              // Start fresh for this persona
               setIsStreaming(true);
               try {
-                const { text, cost } = await callLLM({
-                  system: systemPrompt,
-                  messages: [{ role: 'user', content: 'Start the conversation. Introduce yourself briefly and ask your first question.' }],
-                  temperature: 0.5, max_tokens: 200, model: 'haiku'
-                });
+                const { text, cost } = await callLLM({ system: getSysPrompt(), messages: [{ role: 'user', content: 'Start the conversation. Introduce yourself briefly and ask your first question.' }], temperature: 0.5, max_tokens: 200, model: 'haiku' });
                 sessionCost += (cost.total || 0);
-
-                // Fix 2: Store persona per message
-                const openingMsg = { role: 'assistant', content: text, timestamp: new Date().toISOString(), persona: persona };
-                setMessages([openingMsg]);
-
-                const { data: conv } = await supabase
-                  .from('conversations')
-                  .insert({ user_id: user.id, persona: persona, messages: [openingMsg], stage: 'diagnostic' })
-                  .select().single();
+                const msg = { role: 'assistant', content: text, timestamp: new Date().toISOString(), persona: activePersona };
+                setMessages([msg]);
+                const { data: conv } = await supabase.from('conversations').insert({ user_id: user.id, persona: activePersona, messages: [msg], stage: 'diagnostic' }).select().single();
                 if (conv) setConversationId(conv.id);
               } catch (err) {
-                console.error('Opening failed:', err);
-                const fb = persona === 'joshua'
-                  ? "Hey! I'm Joshua. Before I can help, I need to understand where you're at. What's bringing you here today — actively job hunting, exploring, or somewhere in between?"
-                  : "Yo! Main Adi hoon. Chal bata — abhi actively dhundh raha hai ya bas exploring?";
-                setMessages([{ role: 'assistant', content: fb, timestamp: new Date().toISOString(), persona: persona }]);
+                const fb = activePersona === 'joshua' ? "Hey! I'm Joshua — ex-Flipkart/Meesho hiring panels. What's bringing you here today?" : "Hey! Main Adi hoon — BITS, Razorpay. Chal bata — actively dhundh rahe ho ya exploring?";
+                setMessages([{ role: 'assistant', content: fb, timestamp: new Date().toISOString(), persona: activePersona }]);
               }
               setIsStreaming(false);
             }
           }
           init();
-        }, [persona]); // <-- Re-run when persona changes
+        }, []);
 
-        // ─── Detect job search intent ───
-        function isJobSearchIntent(text) {
-          const lower = text.toLowerCase();
-          return /find.*roles?|find.*jobs?|search.*roles?|search.*jobs?|find.*openings?|good roles?.*for me|look.*roles?|koi.*roles?|roles?.*dhundh|jobs?.*dhundh|openings?.*dhundh|koi.*job.*bata/.test(lower);
-        }
+        const togglePersona = () => {
+          if (switchCount >= MAX_SWITCHES) return;
+          const next = activePersona === 'joshua' ? 'adi' : 'joshua';
+          const sw = { role: 'system_switch', content: `Switched to ${next === 'joshua' ? 'Joshua (English)' : 'Adi (Hinglish)'}`, timestamp: new Date().toISOString(), persona: next };
+          const nm = [...messages, sw]; setMessages(nm); setActivePersona(next); setSwitchCount(p => p + 1);
+          if (conversationId) supabase.from('conversations').update({ messages: nm, persona: next }).eq('id', conversationId);
+        };
 
-        // ─── Handle Serper job search ───
+        function isJobSearchIntent(t) { return /find.*role|find.*job|search.*role|search.*job|role.*for me|role.*dhundh|job.*dhundh|suggest.*role|koi.*acha.*role|koi.*job|good.*role|roles.*mere/.test(t.toLowerCase()); }
+
         async function handleJobSearch(userText) {
-          // Extract search intent from conversation context
-          const contextMsgs = messages.slice(-6).map(m => m.content).join(' ');
-          
-          // Build smart queries from conversation context
+          const ctx = messages.slice(-8).map(m => m.content).join(' ');
           let queries;
           try {
-            const { text: queryJSON } = await callLLM({
-              system: 'Extract job search parameters from the conversation. Return ONLY JSON: {"role":"target role","location":"city/region or remote","skills":["top 3 skills"],"company_type":"startup/mnc/any"}',
-              messages: [{ role: 'user', content: `Conversation context:\n${contextMsgs}\n\nLatest request: "${userText}"\n\nExtract the job search parameters.` }],
-              temperature: 0.1, max_tokens: 150, model: 'haiku'
-            });
-            const params = JSON.parse(queryJSON.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
-            queries = [
-              `${params.role} jobs ${params.location || 'India'} 2026`,
-              `${params.role} ${params.company_type || ''} hiring India`,
-              `${params.skills?.[0] || ''} ${params.role} openings`
-            ].filter(q => q.trim().length > 5);
-          } catch {
-            queries = [`${userText} jobs India`, `${userText} hiring 2026`];
-          }
-
+            const { text: qJ } = await callLLM({ system: 'Extract job search params. Return ONLY JSON: {"role":"","location":"","keywords":[]}', messages: [{ role: 'user', content: `Context:\n${ctx}\nRequest: "${userText}"` }], temperature: 0.1, max_tokens: 100, model: 'haiku' });
+            const p = JSON.parse(qJ.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
+            queries = [`${p.role} jobs ${p.location || 'India'} site:linkedin.com/jobs`, `${p.role} hiring ${p.location || 'India'} site:naukri.com OR site:wellfound.com`, `${(p.keywords || [])[0] || p.role} positions India`].filter(q => q.length > 10);
+          } catch { queries = [`${userText.replace(/find|search|me|for|the|koi|role|job|bata/gi, '').trim()} jobs India site:linkedin.com/jobs`]; }
           const results = await callSearch(queries);
           if (!results) return null;
-
-          // Format results for Joshua/Adi to present
-          let jobResults = [];
-          Object.values(results).forEach(items => {
-            items.forEach(r => {
-              if (r.title && r.url && !jobResults.find(j => j.url === r.url)) {
-                jobResults.push({ title: r.title, url: r.url, snippet: r.snippet });
-              }
-            });
-          });
-          return jobResults.slice(0, 5);
+          let jobs = []; Object.values(results).forEach(items => (items || []).forEach(r => { if (r.title && r.url && !jobs.find(j => j.url === r.url)) jobs.push({ title: r.title, url: r.url, snippet: (r.snippet || '').slice(0, 200) }); }));
+          return jobs.slice(0, 5);
         }
 
-        // ─── Send message ───
+        function trimForAPI(msgs) { return msgs.filter(m => m.role === 'user' || m.role === 'assistant').slice(-6).map(m => ({ role: m.role, content: m.content })); }
+
+        const handleFile = async (file) => {
+          if (!file) return; setUploadingFile(true);
+          try {
+            const text = await parseResumeFile(file); setResumeText(text);
+            const um = { role: 'user', content: `Uploaded: ${file.name}`, timestamp: new Date().toISOString() };
+            const sm = { role: 'status', content: `Resume parsed — ${text.split(/\s+/).length} words` };
+            const nm = [...messages, um, sm]; setMessages(nm);
+            await supabase.from('resumes').insert({ user_id: user.id, raw_text: text, is_master: true, version: 1 });
+            setIsStreaming(true);
+            const { text: reply, cost } = await callLLM({ system: getSysPrompt() + '\n\nUser uploaded their resume. Acknowledge briefly and ask them to paste the job description.', messages: [{ role: 'user', content: 'I uploaded my resume.' }], temperature: 0.4, max_tokens: 150, model: 'haiku' });
+            sessionCost += (cost.total || 0);
+            const am = { role: 'assistant', content: reply, timestamp: new Date().toISOString(), persona: activePersona };
+            const final = [...nm, am]; setMessages(final); setStage('intake');
+            if (conversationId) await supabase.from('conversations').update({ messages: final, stage: 'intake' }).eq('id', conversationId);
+            setIsStreaming(false);
+          } catch (err) {
+            setMessages(prev => [...prev, { role: 'assistant', content: `Could not read file — ${err.message}. Paste text instead.`, timestamp: new Date().toISOString(), persona: activePersona }]);
+            setIsStreaming(false);
+          }
+          setUploadingFile(false);
+        };
+
+        const handleJdSubmit = async () => {
+          if (!jdText.trim()) return;
+          const jd = jdText.trim(); setStage('analyzing'); setJdText('');
+          const um = { role: 'user', content: jd.length > 200 ? jd.slice(0, 200) + '...' : jd, timestamp: new Date().toISOString() };
+          let nm = [...messages, um]; setMessages(nm);
+          try {
+            setAnalysisStatus('Extracting role details...');
+            const { text: eJ } = await callLLM({ system: 'Extract company and role. Return ONLY JSON: {"company":"","role":""}', messages: [{ role: 'user', content: jd.slice(0, 2000) }], temperature: 0.1, max_tokens: 80, model: 'haiku' });
+            let ext; try { ext = extractJsonObject(eJ); } catch { ext = { company: 'Target Company', role: 'Target Role' }; }
+            const { data: ws } = await supabase.from('workspaces').insert({ user_id: user.id, role_title: ext.role, company: ext.company, jd_raw: jd, status: 'analyzing' }).select().single();
+            if (ws) { setWorkspaceId(ws.id); if (conversationId) await supabase.from('conversations').update({ workspace_id: ws.id }).eq('id', conversationId); }
+            nm = [...nm, { role: 'status', content: `${ext.role} at ${ext.company}` }]; setMessages(nm);
+
+            setAnalysisStatus('Researching ' + ext.company + '...');
+            const sr = await callSearch([`${ext.company} engineering culture tech stack`, `${ext.company} ${ext.role} interview`, `${ext.company} glassdoor reviews`]);
+            const sCtx = formatSearchContext(sr);
+            const cRaw = await callGroq(`Analyze ${ext.company} for ${ext.role}.\n${sCtx}\n${sr ? 'Use search as PRIMARY.' : 'Use training knowledge.'}\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","commonChallenges":[],"redFlags":[],"emphasize":[],"sourcedFrom":"${sr ? 'web' : 'training'}"}`, { model: 'openai/gpt-oss-120b', max_tokens: 2500 });
+            const companyData = validateCompanyData(extractJsonObject(cRaw));
+
+            setAnalysisStatus('Parsing JD...');
+            const jRaw = await callGroq(`Parse this JD.\n\nJD:\n${jd}\n\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"seniorityIndicators":[],"winningPhrases":[]}`, { model: 'llama-3.1-8b-instant', max_tokens: 2500, temperature: 0.1 });
+            const jdData = validateJDData(extractJsonObject(jRaw));
+            if (ws) await supabase.from('workspaces').update({ jd_parsed: jdData, company_data: companyData }).eq('id', ws.id);
+
+            setAnalysisStatus('Scoring fit...');
+            const sP = `Score resume vs JD.\n\nRESUME:\n${resumeText.slice(0, 3000)}\n\nCOMPANY: ${JSON.stringify(companyData)}\nJD: ${JSON.stringify(jdData)}\nTARGET: ${ext.role} at ${ext.company}\n\nRubric(100): MustHave(30), Responsibilities(12), Tonality(8), Metrics(15), Seniority(10), ATS(10), Tooling(10), Differentiators(5).\n\nReturn JSON: {"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","impact":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}`;
+            const scRaw = await callGroq(sP, { model: 'openai/gpt-oss-120b', max_tokens: 3000, temperature: 0.1 });
+            const sd = extractJsonObject(scRaw);
+            const dual = computeDualScores(sd.scoreBreakdown);
+            const fit = { score: sd.matchScore, atsScore: dual.atsScore, hmScore: dual.hmScore, clearance: dual.clearance, gaps: sd.topGaps || [], strengths: sd.topStrengths || [], categories: sd.scoreBreakdown, potential: sd.potentialScoreAfter, companyData, jdData };
+            setFitData(fit);
+            if (ws) await supabase.from('fit_snapshots').insert({ workspace_id: ws.id, overall_score: fit.score, ats_score: fit.atsScore, hm_score: fit.hmScore, category_scores: fit.categories, gaps: fit.gaps.map(g => typeof g === 'string' ? { item: g } : g), strengths: (Array.isArray(fit.strengths) ? fit.strengths : []).map(s => typeof s === 'string' ? { item: s } : s), potential_score: fit.potential });
+
+            setAnalysisStatus('');
+            const { text: verdict, cost } = await callLLM({ system: getSysPrompt() + `\n\nDeliver fit verdict. Score: ${fit.score}/100. ATS: ${fit.atsScore}. HM: ${fit.hmScore}. Clearance: ${fit.clearance}. Gaps: ${JSON.stringify(fit.gaps.slice(0, 3))}. Strengths: ${JSON.stringify(fit.strengths.slice(0, 2))}. Potential: ${fit.potential}. Lead with verdict, name gaps, name strengths. End: "Want me to rewrite your resume for this role?"`, messages: [{ role: 'user', content: `How do I stack up for ${ext.role} at ${ext.company}?` }], temperature: 0.4, max_tokens: 300, model: 'haiku' });
+            sessionCost += (cost.total || 0);
+            const bubbles = splitIntoBubbles(verdict);
+            let final = nm;
+            for (let i = 0; i < bubbles.length; i++) {
+              if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
+              final = [...final, { role: 'assistant', content: bubbles[i], timestamp: new Date().toISOString(), persona: activePersona }];
+              setMessages([...final]);
+            }
+            final = [...final, { role: 'fit_snapshot', fitData: fit, timestamp: new Date().toISOString() }];
+            setMessages([...final]); setStage('results');
+            if (conversationId) await supabase.from('conversations').update({ messages: [...nm, { role: 'assistant', content: bubbles.join(' '), timestamp: new Date().toISOString(), persona: activePersona }], stage: 'results' }).eq('id', conversationId);
+            console.log(`[pipeline] Groq: ~$0.00 | Haiku: $${(cost.total || 0).toFixed(4)} | Session: $${sessionCost.toFixed(4)}`);
+          } catch (err) {
+            console.error('Analysis error:', err); setAnalysisStatus('');
+            setMessages(prev => [...prev, { role: 'assistant', content: `Analysis error: ${err.message}. Paste JD again.`, timestamp: new Date().toISOString(), persona: activePersona }]);
+            setStage('intake');
+          }
+        };
+
         const sendMessage = async () => {
           if (!input.trim() || isStreaming) return;
-          const userText = input.trim();
-          const userMsg = { role: 'user', content: userText, timestamp: new Date().toISOString() };
-          const newMessages = [...messages, userMsg];
-          setMessages(newMessages);
-          setInput('');
-          setIsStreaming(true);
-
+          const ut = input.trim();
+          if (stage === 'intake' && resumeText && !workspaceId) { setJdText(ut); setInput(''); setTimeout(() => handleJdSubmit(), 50); return; }
+          const um = { role: 'user', content: ut, timestamp: new Date().toISOString() };
+          const nm = [...messages, um]; setMessages(nm); setInput(''); setIsStreaming(true);
           try {
-            let responseText;
-            let usageInfo = {};
-
-            // Check for job search intent — use Serper instead of LLM making up search strings
-            if (isJobSearchIntent(userText)) {
-              const jobs = await handleJobSearch(userText);
+            let rt; let ci = {};
+            if (isJobSearchIntent(ut)) {
+              const jobs = await handleJobSearch(ut);
               if (jobs && jobs.length > 0) {
-                const jobContext = jobs.map((j, i) => `${i + 1}. ${j.title}\n   ${j.snippet}\n   ${j.url}`).join('\n\n');
-                const { text, cost } = await callLLM({
-                  system: systemPrompt + '\n\nYou just found real job listings via search. Present the top 3-5 results naturally — mention the role title, company, and what makes it relevant for this user. Keep it conversational. End each with the actual URL. Do NOT make up any listings.',
-                  messages: [...newMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: `Here are real job search results:\n\n${jobContext}\n\nPresent these to the user naturally.` }],
-                  temperature: 0.4, max_tokens: 400, model: 'haiku'
-                });
-                responseText = text;
-                sessionCost += (cost.total || 0);
-                usageInfo = { model: 'haiku+serper' };
-              } else {
-                // Serper failed — give honest response
-                responseText = persona === 'joshua'
-                  ? "I tried searching for live openings but didn't get strong results back. Let me help you refine your target — what specific role title and location are you looking at?"
-                  : "Search kiya but strong results nahi aaye. Chal refine karte hain — exact role title aur location bata, phir better results milenge.";
-                usageInfo = { model: 'fallback' };
-              }
+                const jC = jobs.map((j, i) => `${i+1}. ${j.title}\n   ${j.snippet}\n   ${j.url}`).join('\n\n');
+                const { text, cost } = await callLLM({ system: getSysPrompt() + '\n\nPresent these real job listings. Include URLs. Do NOT say you cannot search.', messages: [...trimForAPI(nm), { role: 'user', content: `RESULTS:\n${jC}\n\nPresent these.` }], temperature: 0.4, max_tokens: 400, model: 'haiku' });
+                rt = text; ci = cost;
+              } else { rt = activePersona === 'joshua' ? "Search didn't return strong results. Be more specific — role title, company type, city?" : "Search se results nahi aaye. Thoda specific bolo — role, company type, city?"; }
             } else {
-              // Normal conversation — route through Haiku
-              const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
-              const { text, cost, usage } = await callLLM({
-                system: systemPrompt,
-                messages: apiMessages,
-                temperature: 0.4, max_tokens: 300, model: 'haiku'
-              });
-              responseText = text;
-              sessionCost += (cost.total || 0);
-              usageInfo = usage;
+              const uc = nm.filter(m => m.role === 'user').length;
+              let extra = '';
+              if (stage === 'diagnostic' && uc >= 6) { setStage('intake'); extra = '\n\nDiagnostic done. Tell user to drop their resume.'; }
+              const { text, cost } = await callLLM({ system: getSysPrompt() + extra, messages: trimForAPI(nm), temperature: 0.4, max_tokens: 250, model: 'haiku' });
+              rt = text; ci = cost;
             }
-
-            // Fix 3: Client-side bubble splitting (works even if LLM ignores ||| instruction)
-            const bubbles = splitIntoBubbles(responseText);
-            const fullText = bubbles.join(' ');
-
-            // Render first bubble
-            const firstMsg = { role: 'assistant', content: bubbles[0], timestamp: new Date().toISOString(), persona: persona };
-            let currentMessages = [...newMessages, firstMsg];
-            setMessages(currentMessages);
-
-            // Stagger remaining bubbles
-            for (let i = 1; i < bubbles.length; i++) {
-              await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
-              const nextMsg = { role: 'assistant', content: bubbles[i], timestamp: new Date().toISOString(), persona: persona };
-              currentMessages = [...currentMessages, nextMsg];
-              setMessages([...currentMessages]);
+            sessionCost += (ci.total || 0);
+            const bubs = splitIntoBubbles(rt);
+            let cur = nm;
+            for (let i = 0; i < bubs.length; i++) {
+              if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
+              cur = [...cur, { role: 'assistant', content: bubs[i], timestamp: new Date().toISOString(), persona: activePersona }];
+              setMessages([...cur]);
             }
-
-            // Persist (single message in DB for API context continuity)
-            const dbMessages = [...newMessages, { role: 'assistant', content: fullText, timestamp: new Date().toISOString(), persona: persona }];
-            if (conversationId) {
-              await supabase.from('conversations')
-                .update({ messages: dbMessages, updated_at: new Date().toISOString() })
-                .eq('id', conversationId);
-            }
-
-            // Cost logging
-            console.log(`[${usageInfo.model || 'haiku'}] in:${usageInfo.input_tokens || '?'} out:${usageInfo.output_tokens || '?'} | this: $${(sessionCost).toFixed(4)} session total`);
-
+            if (conversationId) await supabase.from('conversations').update({ messages: [...nm, { role: 'assistant', content: bubs.join(' '), timestamp: new Date().toISOString(), persona: activePersona }], stage }).eq('id', conversationId);
+            console.log(`[${activePersona}|haiku] $${sessionCost.toFixed(4)}`);
           } catch (err) {
-            console.error('Message failed:', err);
-            setMessages(prev => [...prev, {
-              role: 'assistant', persona: persona,
-              content: persona === 'joshua'
-                ? "Connection issue — resend your last message."
-                : "Connection issue — ek baar aur send kar.",
-              timestamp: new Date().toISOString()
-            }]);
+            setMessages(prev => [...prev, { role: 'assistant', persona: activePersona, content: 'Connection issue — resend.', timestamp: new Date().toISOString() }]);
           }
           setIsStreaming(false);
         };
 
-        const [theme, setTheme] = useState(() => {
-          try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; }
-        });
-        const toggleTheme = () => {
-          const next = theme === 'dark' ? 'light' : 'dark';
-          setTheme(next);
-          document.documentElement.setAttribute('data-theme', next);
-          try { localStorage.setItem('rc_theme', next); } catch {}
-        };
+        const [theme, setTheme] = useState(() => { try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; } });
+        const toggleTheme = () => { const n = theme === 'dark' ? 'light' : 'dark'; setTheme(n); document.documentElement.setAttribute('data-theme', n); try { localStorage.setItem('rc_theme', n); } catch {} };
+        const showFileUpload = (stage === 'intake' || stage === 'diagnostic') && !resumeText && !showPasteResume;
+        const showJdInput = stage === 'intake' && resumeText && !workspaceId;
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-            {/* ═══ NAV ═══ */}
-            <nav style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '10px 16px', borderBottom: '1px solid var(--color-border)',
-              background: 'var(--color-surface)',
-            }}>
+            <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 4, display: 'flex', alignItems: 'center' }}>
-                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                    <path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                <PersonaAvatar persona={persona} size={30} />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>{persona === 'joshua' ? 'Joshua' : 'Adi'}</div>
-                  <div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />
-                    online
-                  </div>
-                </div>
+                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 4, display: 'flex' }}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+                <PersonaAvatar persona={activePersona} size={30} />
+                <div><div style={{ fontSize: 14, fontWeight: 600 }}>{activePersona === 'joshua' ? 'Joshua' : 'Adi'}</div><div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />online</div></div>
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {fitData && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{fitData.score}/100</span>}
+                <button onClick={togglePersona} disabled={switchCount >= MAX_SWITCHES} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-border)', background: 'none', fontSize: 10, opacity: switchCount >= MAX_SWITCHES ? 0.4 : 1 }}>
+                  <PersonaAvatar persona={activePersona === 'joshua' ? 'adi' : 'joshua'} size={14} />{activePersona === 'joshua' ? 'Adi' : 'Josh'}
+                </button>
                 <Logo size={14} />
-                <button onClick={toggleTheme} style={{
-                  width: 40, height: 24, borderRadius: 12,
-                  background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)',
-                  border: 'none', position: 'relative', transition: 'background 0.3s',
-                }}>
-                  <div style={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: theme === 'dark' ? 'var(--color-bg)' : '#fff',
-                    position: 'absolute', top: 3, left: theme === 'dark' ? 19 : 3,
-                    transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                  }} />
+                <button onClick={toggleTheme} style={{ width: 36, height: 22, borderRadius: 11, background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)', border: 'none', position: 'relative' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: theme === 'dark' ? 'var(--color-bg)' : '#fff', position: 'absolute', top: 3, left: theme === 'dark' ? 17 : 3, transition: 'left .3s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 1px 2px rgba(0,0,0,.1)' }} />
                 </button>
               </div>
             </nav>
 
-            {/* ═══ MESSAGES ═══ */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ maxWidth: 'var(--max-conversation)', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {messages.map((msg, i) => (
-                  <MessageBubble key={i} role={msg.role} persona={persona} msgPersona={msg.persona} content={msg.content} />
-                ))}
-                {isStreaming && <TypingIndicator persona={persona} />}
+                {messages.map((msg, i) => {
+                  if (msg.role === 'system_switch') return (<div key={i} className="msg-in" style={{ display: 'flex', justifyContent: 'center', padding: '6px 16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500, background: 'var(--color-elevated)', border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-full)', padding: '3px 12px' }}><PersonaAvatar persona={msg.persona} size={14} />{msg.content}</div></div>);
+                  if (msg.role === 'status') return <StatusBubble key={i} text={msg.content} />;
+                  if (msg.role === 'fit_snapshot') return <FitSnapshotCard key={i} data={msg.fitData || fitData} />;
+                  return <MessageBubble key={i} role={msg.role} persona={activePersona} msgPersona={msg.persona} content={msg.content} />;
+                })}
+                {analysisStatus && <StatusBubble text={analysisStatus} loading />}
+                {isStreaming && <TypingIndicator persona={activePersona} />}
                 <div ref={bottomRef} />
               </div>
             </div>
 
-            {/* ═══ INPUT ═══ */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-              <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto', display: 'flex', gap: 8 }}>
-                <input ref={inputRef} type="text"
-                  placeholder={persona === 'joshua' ? 'Talk to Joshua...' : 'Adi se baat kar...'}
-                  value={input} onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                  style={{ flex: 1, borderRadius: 'var(--radius-md)', padding: '11px 16px' }}
-                />
-                <button onClick={sendMessage} disabled={!input.trim() || isStreaming} style={{
-                  width: 40, height: 40, borderRadius: 'var(--radius-md)',
-                  background: 'var(--color-primary)', border: 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: (!input.trim() || isStreaming) ? 0.4 : 1, transition: 'opacity 0.2s',
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
+            {showFileUpload && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
+                  <div onClick={() => fileInputRef.current?.click()} onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--color-primary)'; }} onDragLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'} onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--color-border)'; handleFile(e.dataTransfer.files[0]); }} style={{ border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'center', cursor: 'pointer' }}>
+                    {uploadingFile ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><div style={{ width: 14, height: 14, border: '2px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />Parsing...</div> : <><div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>Drop your resume here</div><div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>PDF, DOCX, or TXT</div></>}
+                  </div>
+                  <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+                  <div style={{ textAlign: 'center', marginTop: 6 }}><button onClick={() => setShowPasteResume(true)} style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'none', border: 'none', textDecoration: 'underline' }}>or paste text</button></div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {showPasteResume && !resumeText && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
+                  <textarea placeholder="Paste resume text..." rows={5} style={{ width: '100%', marginBottom: 6 }} id="rp" />
+                  <button onClick={() => { const t = document.getElementById('rp').value.trim(); if (t.length > 20) { setResumeText(t); setShowPasteResume(false); setStage('intake'); supabase.from('resumes').insert({ user_id: user.id, raw_text: t, is_master: true }); setMessages(prev => [...prev, { role: 'status', content: 'Resume — ' + t.split(/\s+/).length + ' words' }]); } }} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--color-primary)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600 }}>Submit</button>
+                </div>
+              </div>
+            )}
+
+            {showJdInput && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
+                  <textarea placeholder="Paste the job description..." rows={4} value={jdText} onChange={e => setJdText(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
+                  <button onClick={handleJdSubmit} disabled={!jdText.trim()} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--color-primary)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, opacity: jdText.trim() ? 1 : 0.4 }}>Analyze</button>
+                </div>
+              </div>
+            )}
+
+            {stage !== 'analyzing' && !showFileUpload && !showPasteResume && !showJdInput && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
+                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto', display: 'flex', gap: 8 }}>
+                  <input ref={inputRef} type="text" placeholder={activePersona === 'joshua' ? 'Talk to Joshua...' : 'Adi se baat karo...'} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} style={{ flex: 1, borderRadius: 'var(--radius-md)', padding: '11px 16px' }} />
+                  <button onClick={sendMessage} disabled={!input.trim() || isStreaming} style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!input.trim() || isStreaming) ? 0.4 : 1 }}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         );
       }
@@ -1048,7 +1167,7 @@ Intro (1 line) + Q1 se shuru.`;
           return (
             <ConversationPage
               user={session.user}
-              persona={activeChat}
+              initialPersona={activeChat}
               onSignOut={handleSignOut}
               onBack={() => setActiveChat(null)}
             />
