@@ -227,20 +227,67 @@ Intro (1 line) + Q1 se shuru.`;
       // API HELPERS
       // ═══════════════════════════════════════════════════════
 
-      async function callSonnet({ system, messages, temperature = 0.4, max_tokens = 300 }) {
+      // Model routing: 'haiku' for conversation, 'sonnet' for voice moments
+      async function callLLM({ system, messages, temperature = 0.4, max_tokens = 300, model = 'haiku' }) {
         const res = await fetch('/.netlify/functions/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ system, messages, temperature, max_tokens })
+          body: JSON.stringify({ system, messages, temperature, max_tokens, model })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Chat API error');
         const textBlock = (data.content || []).find(c => c.type === 'text');
         return {
           text: textBlock ? textBlock.text : '',
-          usage: data.usage || {}
+          usage: data.usage || {},
+          cost: data.cost || {},
+          model: data.model || model
         };
       }
+
+      // Serper search
+      async function callSearch(queries) {
+        try {
+          const res = await fetch("/.netlify/functions/search", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ queries })
+          });
+          const data = await res.json();
+          return data.searchAvailable ? data.results : null;
+        } catch (err) { console.warn('Search unavailable:', err.message); return null; }
+      }
+
+      // Split long messages into bubbles — client-side fallback when ||| not present
+      function splitIntoBubbles(text) {
+        // First try the ||| delimiter
+        if (text.includes('|||')) {
+          return text.split('|||').map(p => p.trim()).filter(Boolean);
+        }
+        // Fallback: if message is >200 chars, split at sentence boundaries
+        if (text.length > 200) {
+          const sentences = text.match(/[^.!?]+[.!?]+\s*/g) || [text];
+          const bubbles = [];
+          let current = '';
+          for (const s of sentences) {
+            if ((current + s).length > 180 && current.length > 0) {
+              bubbles.push(current.trim());
+              current = s;
+            } else {
+              current += s;
+            }
+          }
+          if (current.trim()) bubbles.push(current.trim());
+          // Cap at 3 bubbles max
+          if (bubbles.length > 3) {
+            return [bubbles[0], bubbles.slice(1, -1).join(' '), bubbles[bubbles.length - 1]];
+          }
+          return bubbles.length > 1 ? bubbles : [text];
+        }
+        return [text];
+      }
+
+      // Session cost tracker
+      let sessionCost = 0;
 
 
       // ═══════════════════════════════════════════════════════
@@ -290,7 +337,9 @@ Intro (1 line) + Q1 se shuru.`;
       // MESSAGE BUBBLE
       // ═══════════════════════════════════════════════════════
 
-      function MessageBubble({ role, persona, content, timestamp }) {
+      function MessageBubble({ role, persona, content, msgPersona }) {
+        // Use message-level persona if available (for history), fall back to current
+        const displayPersona = msgPersona || persona;
         if (role === 'user') {
           return (
             <div className="msg-in" style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 16px' }}>
@@ -304,7 +353,7 @@ Intro (1 line) + Q1 se shuru.`;
         }
         return (
           <div className="msg-in" style={{ display: 'flex', gap: 8, padding: '0 16px', maxWidth: '88%' }}>
-            <PersonaAvatar persona={persona} size={28} />
+            <PersonaAvatar persona={displayPersona} size={28} />
             <div style={{
               background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
               borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
@@ -633,24 +682,17 @@ Intro (1 line) + Q1 se shuru.`;
 
         const systemPrompt = persona === 'joshua' ? JOSHUA_SYSTEM : ADI_SYSTEM;
 
-        // Scroll to bottom on new messages
-        useEffect(() => {
-          bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-        }, [messages, isStreaming]);
-
-        // Focus input on mount
+        useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming]);
         useEffect(() => { inputRef.current?.focus(); }, []);
 
-        // Initialize conversation — load existing or start new
+        // ─── Fix 1: Load conversation filtered by PERSONA, not just any conversation ───
         useEffect(() => {
           async function init() {
-            // Check for existing diagnostic conversation
             const { data } = await supabase
               .from('conversations')
               .select('*')
               .eq('user_id', user.id)
-              .eq('stage', 'diagnostic')
-              .is('workspace_id', null)
+              .eq('persona', persona)  // <-- Filter by current persona
               .order('created_at', { ascending: false })
               .limit(1);
 
@@ -658,105 +700,164 @@ Intro (1 line) + Q1 se shuru.`;
               setConversationId(data[0].id);
               setMessages(data[0].messages);
             } else {
-              // Start fresh — get Joshua/Adi's opening
+              // Start fresh for this persona
               setIsStreaming(true);
               try {
-                const { text } = await callSonnet({
+                const { text, cost } = await callLLM({
                   system: systemPrompt,
                   messages: [{ role: 'user', content: 'Start the conversation. Introduce yourself briefly and ask your first question.' }],
-                  temperature: 0.5,
-                  max_tokens: 256
+                  temperature: 0.5, max_tokens: 200, model: 'haiku'
                 });
+                sessionCost += (cost.total || 0);
 
-                const openingMsg = { role: 'assistant', content: text, timestamp: new Date().toISOString() };
+                // Fix 2: Store persona per message
+                const openingMsg = { role: 'assistant', content: text, timestamp: new Date().toISOString(), persona: persona };
                 setMessages([openingMsg]);
 
-                // Save to Supabase
                 const { data: conv } = await supabase
                   .from('conversations')
-                  .insert({
-                    user_id: user.id,
-                    persona: persona,
-                    messages: [openingMsg],
-                    stage: 'diagnostic'
-                  })
-                  .select()
-                  .single();
-
+                  .insert({ user_id: user.id, persona: persona, messages: [openingMsg], stage: 'diagnostic' })
+                  .select().single();
                 if (conv) setConversationId(conv.id);
               } catch (err) {
-                console.error('Opening message failed:', err);
-                const fallback = persona === 'joshua'
-                  ? "Hey! I'm Joshua. I've spent the last 6 years on hiring panels at Flipkart, Meesho, and Zepto — so I know what gets through and what doesn't. Before I can help, I need to understand where you're at. What's bringing you here today — are you actively job hunting, just exploring, or somewhere in between?"
-                  : "Yo! Main Adi hoon — BITS se nikla, Razorpay mein 3 saal kiya, ab ek startup mein hoon. Resume, interviews, job search — sab mein help karunga. Chal bata — abhi actively dhundh raha hai ya bas exploring kar raha hai?";
-                setMessages([{ role: 'assistant', content: fallback, timestamp: new Date().toISOString() }]);
+                console.error('Opening failed:', err);
+                const fb = persona === 'joshua'
+                  ? "Hey! I'm Joshua. Before I can help, I need to understand where you're at. What's bringing you here today — actively job hunting, exploring, or somewhere in between?"
+                  : "Yo! Main Adi hoon. Chal bata — abhi actively dhundh raha hai ya bas exploring?";
+                setMessages([{ role: 'assistant', content: fb, timestamp: new Date().toISOString(), persona: persona }]);
               }
               setIsStreaming(false);
             }
           }
           init();
-        }, []);
+        }, [persona]); // <-- Re-run when persona changes
 
+        // ─── Detect job search intent ───
+        function isJobSearchIntent(text) {
+          const lower = text.toLowerCase();
+          return /find.*roles?|find.*jobs?|search.*roles?|search.*jobs?|find.*openings?|good roles?.*for me|look.*roles?|koi.*roles?|roles?.*dhundh|jobs?.*dhundh|openings?.*dhundh|koi.*job.*bata/.test(lower);
+        }
+
+        // ─── Handle Serper job search ───
+        async function handleJobSearch(userText) {
+          // Extract search intent from conversation context
+          const contextMsgs = messages.slice(-6).map(m => m.content).join(' ');
+          
+          // Build smart queries from conversation context
+          let queries;
+          try {
+            const { text: queryJSON } = await callLLM({
+              system: 'Extract job search parameters from the conversation. Return ONLY JSON: {"role":"target role","location":"city/region or remote","skills":["top 3 skills"],"company_type":"startup/mnc/any"}',
+              messages: [{ role: 'user', content: `Conversation context:\n${contextMsgs}\n\nLatest request: "${userText}"\n\nExtract the job search parameters.` }],
+              temperature: 0.1, max_tokens: 150, model: 'haiku'
+            });
+            const params = JSON.parse(queryJSON.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
+            queries = [
+              `${params.role} jobs ${params.location || 'India'} 2026`,
+              `${params.role} ${params.company_type || ''} hiring India`,
+              `${params.skills?.[0] || ''} ${params.role} openings`
+            ].filter(q => q.trim().length > 5);
+          } catch {
+            queries = [`${userText} jobs India`, `${userText} hiring 2026`];
+          }
+
+          const results = await callSearch(queries);
+          if (!results) return null;
+
+          // Format results for Joshua/Adi to present
+          let jobResults = [];
+          Object.values(results).forEach(items => {
+            items.forEach(r => {
+              if (r.title && r.url && !jobResults.find(j => j.url === r.url)) {
+                jobResults.push({ title: r.title, url: r.url, snippet: r.snippet });
+              }
+            });
+          });
+          return jobResults.slice(0, 5);
+        }
+
+        // ─── Send message ───
         const sendMessage = async () => {
           if (!input.trim() || isStreaming) return;
-          const userMsg = { role: 'user', content: input.trim(), timestamp: new Date().toISOString() };
+          const userText = input.trim();
+          const userMsg = { role: 'user', content: userText, timestamp: new Date().toISOString() };
           const newMessages = [...messages, userMsg];
           setMessages(newMessages);
           setInput('');
           setIsStreaming(true);
 
           try {
-            // Build message history for Sonnet (exclude timestamps)
-            const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
+            let responseText;
+            let usageInfo = {};
 
-            const { text, usage } = await callSonnet({
-              system: systemPrompt,
-              messages: apiMessages,
-              temperature: 0.4,
-              max_tokens: 300
-            });
+            // Check for job search intent — use Serper instead of LLM making up search strings
+            if (isJobSearchIntent(userText)) {
+              const jobs = await handleJobSearch(userText);
+              if (jobs && jobs.length > 0) {
+                const jobContext = jobs.map((j, i) => `${i + 1}. ${j.title}\n   ${j.snippet}\n   ${j.url}`).join('\n\n');
+                const { text, cost } = await callLLM({
+                  system: systemPrompt + '\n\nYou just found real job listings via search. Present the top 3-5 results naturally — mention the role title, company, and what makes it relevant for this user. Keep it conversational. End each with the actual URL. Do NOT make up any listings.',
+                  messages: [...newMessages.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: `Here are real job search results:\n\n${jobContext}\n\nPresent these to the user naturally.` }],
+                  temperature: 0.4, max_tokens: 400, model: 'haiku'
+                });
+                responseText = text;
+                sessionCost += (cost.total || 0);
+                usageInfo = { model: 'haiku+serper' };
+              } else {
+                // Serper failed — give honest response
+                responseText = persona === 'joshua'
+                  ? "I tried searching for live openings but didn't get strong results back. Let me help you refine your target — what specific role title and location are you looking at?"
+                  : "Search kiya but strong results nahi aaye. Chal refine karte hain — exact role title aur location bata, phir better results milenge.";
+                usageInfo = { model: 'fallback' };
+              }
+            } else {
+              // Normal conversation — route through Haiku
+              const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
+              const { text, cost, usage } = await callLLM({
+                system: systemPrompt,
+                messages: apiMessages,
+                temperature: 0.4, max_tokens: 300, model: 'haiku'
+              });
+              responseText = text;
+              sessionCost += (cost.total || 0);
+              usageInfo = usage;
+            }
 
-            // Split on ||| delimiter for multi-bubble rendering
-            const parts = text.split('|||').map(p => p.trim()).filter(Boolean);
-            
-            // Store full text as one message in DB (for context continuity)
-            const fullText = parts.join(' ');
-            
-            // Render first bubble immediately
-            const firstMsg = { role: 'assistant', content: parts[0], timestamp: new Date().toISOString() };
+            // Fix 3: Client-side bubble splitting (works even if LLM ignores ||| instruction)
+            const bubbles = splitIntoBubbles(responseText);
+            const fullText = bubbles.join(' ');
+
+            // Render first bubble
+            const firstMsg = { role: 'assistant', content: bubbles[0], timestamp: new Date().toISOString(), persona: persona };
             let currentMessages = [...newMessages, firstMsg];
             setMessages(currentMessages);
-            
-            // Render remaining bubbles with staggered delay
-            for (let i = 1; i < parts.length; i++) {
+
+            // Stagger remaining bubbles
+            for (let i = 1; i < bubbles.length; i++) {
               await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
-              const nextMsg = { role: 'assistant', content: parts[i], timestamp: new Date().toISOString() };
+              const nextMsg = { role: 'assistant', content: bubbles[i], timestamp: new Date().toISOString(), persona: persona };
               currentMessages = [...currentMessages, nextMsg];
               setMessages([...currentMessages]);
             }
 
-            // Persist full conversation (combine multi-bubble back into one message for API context)
-            const dbMessages = [...newMessages, { role: 'assistant', content: fullText, timestamp: new Date().toISOString() }];
+            // Persist (single message in DB for API context continuity)
+            const dbMessages = [...newMessages, { role: 'assistant', content: fullText, timestamp: new Date().toISOString(), persona: persona }];
             if (conversationId) {
-              await supabase
-                .from('conversations')
+              await supabase.from('conversations')
                 .update({ messages: dbMessages, updated_at: new Date().toISOString() })
                 .eq('id', conversationId);
             }
 
-            // Log usage for cost tracking
-            if (usage.input_tokens) {
-              const cost = (usage.input_tokens * 3 / 1000000) + (usage.output_tokens * 15 / 1000000);
-              console.log(`Sonnet 4.6: ${usage.input_tokens}in / ${usage.output_tokens}out / cache:${usage.cache_read_input_tokens || 0} / ~$${cost.toFixed(4)}`);
-            }
+            // Cost logging
+            console.log(`[${usageInfo.model || 'haiku'}] in:${usageInfo.input_tokens || '?'} out:${usageInfo.output_tokens || '?'} | this: $${(sessionCost).toFixed(4)} session total`);
 
           } catch (err) {
             console.error('Message failed:', err);
             setMessages(prev => [...prev, {
-              role: 'assistant',
+              role: 'assistant', persona: persona,
               content: persona === 'joshua'
-                ? "Sorry, I hit a connection issue. Let me try again — just resend your last message."
-                : "Arre, connection issue aa gaya. Ek baar phir se send kar — fix ho jayega.",
+                ? "Connection issue — resend your last message."
+                : "Connection issue — ek baar aur send kar.",
               timestamp: new Date().toISOString()
             }]);
           }
@@ -766,7 +867,6 @@ Intro (1 line) + Q1 se shuru.`;
         const [theme, setTheme] = useState(() => {
           try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; }
         });
-
         const toggleTheme = () => {
           const next = theme === 'dark' ? 'light' : 'dark';
           setTheme(next);
@@ -790,9 +890,7 @@ Intro (1 line) + Q1 se shuru.`;
                 </button>
                 <PersonaAvatar persona={persona} size={30} />
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600 }}>
-                    {persona === 'joshua' ? 'Joshua' : 'Adi'}
-                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>{persona === 'joshua' ? 'Joshua' : 'Adi'}</div>
                   <div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />
                     online
@@ -801,7 +899,6 @@ Intro (1 line) + Q1 se shuru.`;
               </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <Logo size={14} />
-                {/* Theme toggle */}
                 <button onClick={toggleTheme} style={{
                   width: 40, height: 24, borderRadius: 12,
                   background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)',
@@ -810,8 +907,7 @@ Intro (1 line) + Q1 se shuru.`;
                   <div style={{
                     width: 18, height: 18, borderRadius: '50%',
                     background: theme === 'dark' ? 'var(--color-bg)' : '#fff',
-                    position: 'absolute', top: 3,
-                    left: theme === 'dark' ? 19 : 3,
+                    position: 'absolute', top: 3, left: theme === 'dark' ? 19 : 3,
                     transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s',
                     boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   }} />
@@ -819,13 +915,11 @@ Intro (1 line) + Q1 se shuru.`;
               </div>
             </nav>
 
-            {/* Removed separate chat header — persona is now in nav */}
-
             {/* ═══ MESSAGES ═══ */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div style={{ maxWidth: 'var(--max-conversation)', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {messages.map((msg, i) => (
-                  <MessageBubble key={i} role={msg.role} persona={persona} content={msg.content} timestamp={msg.timestamp} />
+                  <MessageBubble key={i} role={msg.role} persona={persona} msgPersona={msg.persona} content={msg.content} />
                 ))}
                 {isStreaming && <TypingIndicator persona={persona} />}
                 <div ref={bottomRef} />
@@ -833,17 +927,11 @@ Intro (1 line) + Q1 se shuru.`;
             </div>
 
             {/* ═══ INPUT ═══ */}
-            <div style={{
-              padding: '12px 16px', borderTop: '1px solid var(--color-border)',
-              background: 'var(--color-surface)',
-            }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
               <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto', display: 'flex', gap: 8 }}>
-                <input
-                  ref={inputRef}
-                  type="text"
+                <input ref={inputRef} type="text"
                   placeholder={persona === 'joshua' ? 'Talk to Joshua...' : 'Adi se baat kar...'}
-                  value={input}
-                  onChange={e => setInput(e.target.value)}
+                  value={input} onChange={e => setInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && sendMessage()}
                   style={{ flex: 1, borderRadius: 'var(--radius-md)', padding: '11px 16px' }}
                 />
@@ -851,8 +939,7 @@ Intro (1 line) + Q1 se shuru.`;
                   width: 40, height: 40, borderRadius: 'var(--radius-md)',
                   background: 'var(--color-primary)', border: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: (!input.trim() || isStreaming) ? 0.4 : 1,
-                  transition: 'opacity 0.2s',
+                  opacity: (!input.trim() || isStreaming) ? 0.4 : 1, transition: 'opacity 0.2s',
                 }}>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                     <path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
