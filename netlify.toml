@@ -13,8 +13,14 @@
 [functions]
   node_bundler = "esbuild"
 
+# Existing Groq proxy — kept for extraction tasks in Phase 2
 [functions."transform"]
   timeout = 26
 
+# Existing Serper search proxy
 [functions."search"]
   timeout = 15
+
+# NEW: Sonnet 4.6 proxy for conversations
+[functions."chat"]
+  timeout = 26
