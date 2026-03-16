@@ -163,48 +163,71 @@
 
       const JOSHUA_SYSTEM = `You are Joshua — an experienced career strategist with a background spanning Flipkart, Meesho, and Zepto. You've reviewed thousands of resumes, sat on hiring panels at Series A through Series D companies, and know what Indian hiring managers actually look for versus what JDs say they want.
 
-VOICE: Direct, specific, never hedging. Use concrete Indian market references when relevant. Deliver bad news by naming the gap precisely and immediately providing the path to close it. Never use filler phrases. Keep responses to 2-4 sentences for conversational turns.
+VOICE: Direct, specific, never hedging. Use concrete Indian market references when relevant. Never use filler phrases. Never use bullet points or lists in conversation.
 
-EMOTIONAL CALIBRATION: If anxious — ground with specifics. If overconfident — challenge with a concrete gap. If lost — narrow to one next action. If they got a win — celebrate specifically.
+MESSAGE FORMAT — CRITICAL:
+- Keep each message to 1-3 sentences MAX. Be concise.
+- If you have more to say, use ||| as a delimiter between separate thoughts. The app will render each part as a separate chat bubble with a natural typing delay.
+- Example: "You're a real contender at 78.||| But there's one gap worth closing — data pipeline architecture. The JD mentions it three times and your resume doesn't cover it.||| Let me rewrite those bullets."
+- NEVER send more than 3 parts separated by |||. Most messages should be 1 part.
 
-You are currently in the DIAGNOSTIC stage. Ask ONE question at a time to understand this job seeker. After each answer, remember their response and move to the next question naturally.
+EMOTIONAL CALIBRATION: If anxious — ground with specifics. If overconfident — challenge with a concrete gap. If lost — narrow to one next action.
 
-Your 5 questions (ask one per turn, adapt wording to feel natural):
-1. "What's bringing you here today — are you actively job hunting, just exploring, or somewhere in between?"
-2. "Do you have a resume you've used recently, or are we starting more or less from scratch?"
-3. "When you think about your next role, do you have a clear picture or is it still forming?"
-4. "What's been the hardest part so far — getting interviews, passing them, or figuring out where to even apply?"
-5. "Have you done any internship, project, or freelance work — even something small?"
+CONVERSATION BOUNDARIES:
+- You ONLY help with: career search strategy, resume analysis, fit scoring, interview prep, job targeting.
+- If someone asks for general knowledge, coding help, creative writing, or anything outside career guidance — redirect: "That's outside my lane. I'm here for your career search. Want to get back to [current task]?"
+- Do NOT provide detailed interview answers, salary negotiation scripts, or job search beyond what the current stage requires.
+- In DIAGNOSTIC stage: only ask the 5 questions and summarize. Don't jump ahead to resume advice.
 
-After all 5 are answered, summarize what you've learned and suggest the best first action. Be specific to what they told you.
+DIAGNOSTIC STAGE: Ask ONE question at a time. After each answer, acknowledge briefly (half a sentence) then ask the next.
 
-Start by introducing yourself briefly (1 sentence) and asking question 1.`;
+Your 5 questions:
+1. "What's bringing you here today — actively hunting, exploring, or somewhere in between?"
+2. "Got a resume you've used recently, or are we starting from scratch?"
+3. "When you think about your next role — clear picture or still forming?"
+4. "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?"
+5. "Any internship, project, or freelance work — even something small?"
+
+After all 5: summarize in 2-3 sentences what you've learned, then tell them to drop their resume. Be specific to what they told you.
+
+Start with a 1-sentence intro and question 1.`;
 
       const ADI_SYSTEM = `Tu Adi hai — BITS se nikla, Razorpay mein 3 saal kiya, ab ek Bengaluru Series B startup mein. Tu woh dost hai jo referral de deta hai aur honestly bolta hai ki company join karne layak hai ya nahi.
 
-VOICE: Natural Hindi-English code-switching. Never formal Hindi. Never English-dominant. "Dekh" before hard truths. "Bhai/Yaar" as natural address. Keep sentences short. Technical terms in English. Romanized Hindi only — never Devanagari.
+VOICE: Natural Hindi-English code-switching. Never formal Hindi. Never English-dominant. "Dekh" before hard truths. "Bhai/Yaar" as natural address. Short sentences. Technical terms in English. Romanized Hindi only.
 
-EMOTIONAL CALIBRATION: Anxiety gets "Sun, tension mat le" + specifics. Overconfidence gets "Ek second ruk — yeh gap dekh". Lost gets "Chal simple rakh — pehle yeh ek cheez kar." Win gets "BHAI! You got it!"
+MESSAGE FORMAT — CRITICAL:
+- Har message 1-3 sentences MAX. Concise rakh.
+- Agar zyada bolna hai, ||| use kar parts mein split karne ke liye. App alag bubbles mein dikhayega with typing delay.
+- Example: "Tu genuine contender hai 78 pe.||| Ek gap hai — data pipeline architecture. JD mein 3 baar mention hai, tera resume mein zero.||| Chal fix karte hain."
+- 3 se zyada parts KABHI nahi. Most messages 1 part hone chahiye.
 
-You are in DIAGNOSTIC stage. Ask ONE question at a time, chill tone.
+EMOTIONAL CALIBRATION: Anxiety → "Sun, tension mat le" + specifics. Overconfidence → "Ek second ruk — yeh gap dekh". Lost → "Chal simple rakh — pehle yeh ek cheez kar."
 
-Your 5 questions (adapt wording naturally in Hinglish):
-1. "Chal bata — abhi actively dhundh raha hai ya bas exploring kar raha hai?"
-2. "Tera resume kitna recent hai? Last kab update kiya tha?"
-3. "Next role ke baare mein clear picture hai ya abhi soch raha hai?"
-4. "Ab tak sabse mushkil kya raha — interviews milna, interviews crack karna, ya samajh nahi aa raha kahan apply karein?"
-5. "Koi internship, project, freelance — kuch bhi kiya hai? Chota bhi chalega."
+CONVERSATION BOUNDARIES:
+- SIRF career search: resume, fit scoring, interview prep, job targeting.
+- Koi aur cheez pooche (coding help, general knowledge, creative writing) toh redirect kar: "Yaar woh mera area nahi hai. Career search mein help karta hoon. [current task] pe wapas chalein?"
+- Diagnostic stage mein SIRF 5 questions aur summarize. Resume advice pe mat jaao abhi.
 
-After all 5, summarize in Hinglish and suggest the best first action specifically.
+DIAGNOSTIC STAGE: Ek ek question puch. Answer ke baad chhota acknowledgment (half sentence) phir next question.
 
-Start by introducing yourself briefly (1 sentence, Hinglish) and asking question 1.`;
+5 questions:
+1. "Chal bata — actively dhundh raha hai ya exploring?"
+2. "Resume kitna recent hai? Last kab update kiya?"
+3. "Next role clear hai ya soch raha hai?"
+4. "Sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply karein?"
+5. "Koi internship, project, freelance kiya hai? Chota bhi chalega."
+
+5 ke baad: 2-3 sentences mein summarize, phir bol resume daal de. Specifics use kar jo unhone bataya.
+
+Intro (1 line) + Q1 se shuru.`;
 
 
       // ═══════════════════════════════════════════════════════
       // API HELPERS
       // ═══════════════════════════════════════════════════════
 
-      async function callSonnet({ system, messages, temperature = 0.4, max_tokens = 1024 }) {
+      async function callSonnet({ system, messages, temperature = 0.4, max_tokens = 300 }) {
         const res = await fetch('/.netlify/functions/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -471,10 +494,136 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
 
 
       // ═══════════════════════════════════════════════════════
+      // SESSION HUB (home screen after auth)
+      // ═══════════════════════════════════════════════════════
+
+      function SessionHub({ user, userProfile, onStartChat, onSignOut, onSwitchPersona }) {
+        const persona = userProfile?.language_pref === 'hinglish' ? 'adi' : 'joshua';
+        const otherPersona = persona === 'joshua' ? 'adi' : 'joshua';
+        const name = userProfile?.name || user?.email?.split('@')[0] || 'there';
+
+        const [theme, setTheme] = useState(() => {
+          try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; }
+        });
+        const toggleTheme = () => {
+          const n = theme === 'dark' ? 'light' : 'dark';
+          setTheme(n);
+          document.documentElement.setAttribute('data-theme', n);
+          try { localStorage.setItem('rc_theme', n); } catch {}
+        };
+
+        return (
+          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+            {/* Nav */}
+            <nav style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 16px', borderBottom: '1px solid var(--color-border)',
+              background: 'var(--color-surface)',
+            }}>
+              <Logo size={18} />
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <button onClick={toggleTheme} style={{
+                  width: 40, height: 24, borderRadius: 12,
+                  background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)',
+                  border: 'none', position: 'relative', transition: 'background 0.3s',
+                }}>
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: theme === 'dark' ? 'var(--color-bg)' : '#fff',
+                    position: 'absolute', top: 3,
+                    left: theme === 'dark' ? 19 : 3,
+                    transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                  }} />
+                </button>
+                <button onClick={onSignOut} style={{
+                  padding: '5px 12px', borderRadius: 'var(--radius-full)',
+                  border: '1px solid var(--color-border)', background: 'none',
+                  fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500,
+                }}>Sign out</button>
+              </div>
+            </nav>
+
+            {/* Content */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+              <Logo size={32} />
+              <div style={{ fontSize: 20, fontWeight: 600, marginTop: 20, marginBottom: 4 }}>
+                Hey {name}
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 36, textAlign: 'center', maxWidth: 360 }}>
+                Ready to work on your next role? Pick who you want in your corner.
+              </div>
+
+              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 32 }}>
+                {/* Primary persona */}
+                <button onClick={() => onStartChat(persona)} style={{
+                  width: 280, background: 'var(--color-surface)', border: '2px solid var(--color-primary)',
+                  borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
+                }}>
+                  <div style={{
+                    background: persona === 'joshua' ? 'var(--color-joshua-light)' : 'var(--color-adi-light)',
+                    padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center',
+                  }}>
+                    <PersonaAvatar persona={persona} size={44} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 17, color: persona === 'joshua' ? 'var(--color-joshua)' : 'var(--color-adi)' }}>
+                        {persona === 'joshua' ? 'Joshua' : 'Adi'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        {persona === 'joshua' ? 'Your career strategist' : 'Tera career dost'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary)' }}>Start conversation</span>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M3 8h8M8 4l4 4-4 4" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                </button>
+
+                {/* Switch persona option */}
+                <button onClick={() => onSwitchPersona(otherPersona)} style={{
+                  width: 280, background: 'var(--color-surface)', border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
+                  opacity: 0.75, transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '0.75'}>
+                  <div style={{
+                    background: otherPersona === 'joshua' ? 'var(--color-joshua-light)' : 'var(--color-adi-light)',
+                    padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center',
+                  }}>
+                    <PersonaAvatar persona={otherPersona} size={44} />
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 17, color: otherPersona === 'joshua' ? 'var(--color-joshua)' : 'var(--color-adi)' }}>
+                        {otherPersona === 'joshua' ? 'Joshua' : 'Adi'}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        {otherPersona === 'joshua' ? 'English · Career strategist' : 'Hinglish · Seedha baat'}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ padding: '12px 20px', textAlign: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Switch to {otherPersona === 'joshua' ? 'English' : 'Hinglish'}</span>
+                  </div>
+                </button>
+              </div>
+
+              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', maxWidth: 320 }}>
+                Your conversations are saved. Pick up where you left off or start fresh.
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+
+      // ═══════════════════════════════════════════════════════
       // CONVERSATION PAGE (main product view)
       // ═══════════════════════════════════════════════════════
 
-      function ConversationPage({ user, persona, onSignOut }) {
+      function ConversationPage({ user, persona, onSignOut, onBack }) {
         const [messages, setMessages] = useState([]);
         const [input, setInput] = useState('');
         const [isStreaming, setIsStreaming] = useState(false);
@@ -564,24 +713,41 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
               system: systemPrompt,
               messages: apiMessages,
               temperature: 0.4,
-              max_tokens: 512
+              max_tokens: 300
             });
 
-            const assistantMsg = { role: 'assistant', content: text, timestamp: new Date().toISOString() };
-            const finalMessages = [...newMessages, assistantMsg];
-            setMessages(finalMessages);
+            // Split on ||| delimiter for multi-bubble rendering
+            const parts = text.split('|||').map(p => p.trim()).filter(Boolean);
+            
+            // Store full text as one message in DB (for context continuity)
+            const fullText = parts.join(' ');
+            
+            // Render first bubble immediately
+            const firstMsg = { role: 'assistant', content: parts[0], timestamp: new Date().toISOString() };
+            let currentMessages = [...newMessages, firstMsg];
+            setMessages(currentMessages);
+            
+            // Render remaining bubbles with staggered delay
+            for (let i = 1; i < parts.length; i++) {
+              await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
+              const nextMsg = { role: 'assistant', content: parts[i], timestamp: new Date().toISOString() };
+              currentMessages = [...currentMessages, nextMsg];
+              setMessages([...currentMessages]);
+            }
 
-            // Persist to Supabase
+            // Persist full conversation (combine multi-bubble back into one message for API context)
+            const dbMessages = [...newMessages, { role: 'assistant', content: fullText, timestamp: new Date().toISOString() }];
             if (conversationId) {
               await supabase
                 .from('conversations')
-                .update({ messages: finalMessages, updated_at: new Date().toISOString() })
+                .update({ messages: dbMessages, updated_at: new Date().toISOString() })
                 .eq('id', conversationId);
             }
 
             // Log usage for cost tracking
             if (usage.input_tokens) {
-              console.log(`Sonnet usage: ${usage.input_tokens}in / ${usage.output_tokens}out / cache_read:${usage.cache_read_input_tokens}`);
+              const cost = (usage.input_tokens * 3 / 1000000) + (usage.output_tokens * 15 / 1000000);
+              console.log(`Sonnet 4.6: ${usage.input_tokens}in / ${usage.output_tokens}out / cache:${usage.cache_read_input_tokens || 0} / ~$${cost.toFixed(4)}`);
             }
 
           } catch (err) {
@@ -613,11 +779,28 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
             {/* ═══ NAV ═══ */}
             <nav style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 16px', borderBottom: '1px solid var(--color-border)',
+              padding: '10px 16px', borderBottom: '1px solid var(--color-border)',
               background: 'var(--color-surface)',
             }}>
-              <Logo size={18} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 4, display: 'flex', alignItems: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                    <path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <PersonaAvatar persona={persona} size={30} />
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600 }}>
+                    {persona === 'joshua' ? 'Joshua' : 'Adi'}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />
+                    online
+                  </div>
+                </div>
+              </div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <Logo size={14} />
                 {/* Theme toggle */}
                 <button onClick={toggleTheme} style={{
                   width: 40, height: 24, borderRadius: 12,
@@ -633,32 +816,10 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
                     boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
                   }} />
                 </button>
-                {/* Sign out */}
-                <button onClick={onSignOut} style={{
-                  padding: '5px 12px', borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--color-border)', background: 'none',
-                  fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500,
-                }}>Sign out</button>
               </div>
             </nav>
 
-            {/* ═══ CHAT HEADER ═══ */}
-            <div style={{
-              padding: '10px 16px', borderBottom: '1px solid var(--color-border)',
-              background: 'var(--color-elevated)',
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <PersonaAvatar persona={persona} size={30} />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>
-                  {persona === 'joshua' ? 'Joshua' : 'Adi'}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />
-                  online
-                </div>
-              </div>
-            </div>
+            {/* Removed separate chat header — persona is now in nav */}
 
             {/* ═══ MESSAGES ═══ */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -712,6 +873,7 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
         const [session, setSession] = useState(null);
         const [userProfile, setUserProfile] = useState(null);
         const [loading, setLoading] = useState(true);
+        const [activeChat, setActiveChat] = useState(null); // persona name when in chat, null = hub
 
         useEffect(() => {
           // Check existing session
@@ -746,6 +908,7 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
           await supabase.auth.signOut();
           setSession(null);
           setUserProfile(null);
+          setActiveChat(null);
         };
 
         const handleLanguageSelect = async (lang, persona) => {
@@ -757,6 +920,18 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
             .select()
             .single();
           setUserProfile(data);
+        };
+
+        const handleSwitchPersona = async (newPersona) => {
+          const lang = newPersona === 'adi' ? 'hinglish' : 'en';
+          const { data } = await supabase
+            .from('users')
+            .update({ language_pref: lang })
+            .eq('id', session.user.id)
+            .select()
+            .single();
+          setUserProfile(data);
+          setActiveChat(newPersona);
         };
 
         if (loading) {
@@ -781,12 +956,26 @@ Start by introducing yourself briefly (1 sentence, Hinglish) and asking question
         // Determine persona from language pref
         const persona = userProfile?.language_pref === 'hinglish' ? 'adi' : 'joshua';
 
-        // Main conversation
+        // Active chat session
+        if (activeChat) {
+          return (
+            <ConversationPage
+              user={session.user}
+              persona={activeChat}
+              onSignOut={handleSignOut}
+              onBack={() => setActiveChat(null)}
+            />
+          );
+        }
+
+        // Session Hub (home)
         return (
-          <ConversationPage
+          <SessionHub
             user={session.user}
-            persona={persona}
+            userProfile={userProfile}
+            onStartChat={(p) => setActiveChat(p)}
             onSignOut={handleSignOut}
+            onSwitchPersona={handleSwitchPersona}
           />
         );
       }
