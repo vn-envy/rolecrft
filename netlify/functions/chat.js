@@ -26,7 +26,7 @@ exports.handler = async (event) => {
 
     // Build the Anthropic API request
     const body = {
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens,
       temperature,
       messages,
