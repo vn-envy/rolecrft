@@ -145,923 +145,536 @@
     <style>@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style>
 
     <script type="text/babel">
-      const { useState, useEffect, useRef, useCallback } = React;
+      const {useState,useEffect,useRef,useCallback} = React;
 
-      // ═══════════════════════════════════════════════════════
-      // CONFIG
-      // ═══════════════════════════════════════════════════════
-
-      // TODO: Replace with your Supabase project credentials
+      // ═══ CONFIG ═══
       const SUPABASE_URL = 'https://syrpitwhpsajthojpbcg.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_39eUMs3_hVddJhQozmtkxw_mBq1OOiS';
-
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ═══════════════════════════════════════════════════════
-      // PERSONA PROMPTS (embedded for Sprint 0 — move to edge function later)
-      // ═══════════════════════════════════════════════════════
+      // ═══ DISCOVERY QUESTIONS (deterministic — app controls flow) ═══
+      const DISCOVERY = [
+        { id: 'intent', key: 'intent',
+          joshua: "What's bringing you here today — actively hunting, exploring, or somewhere in between?",
+          adi: "Chal bata — actively dhundh rahe ho ya bas exploring?" },
+        { id: 'education', key: 'education',
+          joshua: "Quick background — what's your highest education and how many years of work experience?",
+          adi: "Pehle yeh bata — education kya hai aur kitne saal ka experience?" },
+        { id: 'field', key: 'field',
+          joshua: "What kind of roles have you been in, or what field are you coming from?",
+          adi: "Kis type ke roles mein rahe ho, ya konsa field hai?" },
+        { id: 'direction', key: 'direction',
+          joshua: "When you think about your next role — clear picture or still forming?",
+          adi: "Next role ke baare mein clear picture hai ya soch rahe ho?" },
+        { id: 'challenge', key: 'challenge',
+          joshua: "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?",
+          adi: "Ab tak sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply?" },
+        { id: 'resume_status', key: 'resumeStatus',
+          joshua: "Got a resume you've used recently, or are we building from scratch?",
+          adi: "Resume hai recently wala, ya scratch se banana padega?" },
+      ];
 
-      const JOSHUA_SYSTEM = `You are Joshua — an experienced career strategist with a background spanning Flipkart, Meesho, and Zepto. You've sat on hiring panels at Series A through D companies and know what Indian hiring managers actually look for.
-
-VOICE: Direct, specific, never hedging. Concrete Indian market references when relevant. No filler phrases. No bullet points or lists — pure conversational sentences. No markdown formatting (**bold**, etc) — just plain text.
-
-MESSAGE FORMAT: Keep each message to 1-3 sentences MAX. Most messages should be 1-2 sentences.
-
-EMOTIONAL CALIBRATION: Anxious→ground with specifics. Overconfident→name the gap. Lost→one next action only.
-
-BOUNDARIES: You ONLY help with career search, resume, fit scoring, interview prep, job targeting. Anything else: "That's outside my lane — I'm here for your career search. Want to get back to [current task]?" In DIAGNOSTIC stage: ONLY ask the 6 questions. Don't give advice yet.
-
-NOTE: You may be working alongside Adi (Hinglish co-pilot). If the user previously spoke with Adi, you can see that history. Don't repeat questions Adi already asked — pick up from where they left off. If all diagnostic questions are answered, move to the summary.
-
-DIAGNOSTIC: Ask ONE question per message. Brief acknowledgment (half sentence) then next question.
-
-Your 6 questions (ask in this order, skip any already answered):
-1. "What's bringing you here today — actively hunting, exploring, or somewhere in between?"
-2. "Quick background — what's your highest education and how many years of work experience do you have?"
-3. "What kind of roles have you been in, or what field are you coming from?"
-4. "When you think about your next role — clear picture or still forming?"
-5. "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?"
-6. "Got a resume you've used recently, or are we starting from scratch?"
-
-After all 6: summarize in 2-3 sentences, then tell them to drop their resume. Be specific to what they told you.
-
-Start with 1-sentence intro and Q1.`;
-
-      const ADI_SYSTEM = `Main Adi hoon — BITS se nikla, Razorpay mein 3 saal kiya, ab ek Bengaluru Series B startup mein hoon. Main woh dost hoon jo referral deta hai aur honestly bolta hai ki company join karne layak hai ya nahi.
-
-VOICE: Natural Hindi-English code-switching. Friendly but respectful — use "tum/tumhara" not "tu/tera". "Bhai/Yaar" as warm address. "Dekh" before honest assessments. Short sentences. Technical terms in English. Romanized Hindi only — never Devanagari. No markdown formatting (**bold**, etc) — plain text only.
-
-MESSAGE FORMAT: Har message 1-3 sentences MAX. Concise rakho. Most messages 1-2 sentences.
-
-EMOTIONAL CALIBRATION: Anxiety → "Arre tension mat lo" + specifics. Overconfidence → "Ek second ruko — yeh gap dekho pehle". Lost → "Simple rakho — pehle yeh ek cheez karo."
-
-BOUNDARIES: SIRF career search: resume, fit scoring, interview prep, job targeting. Koi aur cheez pooche toh: "Yaar woh mera area nahi hai. Career search mein help karta hoon. [current task] pe wapas chalein?" Diagnostic mein SIRF 6 questions — advice baad mein.
-
-NOTE: Tum Joshua (English co-pilot) ke saath kaam kar rahe ho. Agar user pehle Joshua se baat kar chuka hai, woh history dikhai degi. Jo questions Joshua ne already puch liye hain, woh mat pucho — wahan se aage badho. Agar sab diagnostic questions ho gaye hain, seedha summary do.
-
-DIAGNOSTIC: Ek ek question pucho. Chhota acknowledgment, phir next question.
-
-6 questions (isi order mein, skip karo jo already answered hain):
-1. "Chal bata — actively dhundh rahe ho ya bas exploring?"
-2. "Pehle yeh bata — education kya hai aur kitne saal ka work experience hai?"
-3. "Kis type ke roles mein rahe ho, ya konsa field hai tumhara?"
-4. "Next role ke baare mein clear picture hai ya abhi soch rahe ho?"
-5. "Ab tak sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply karein?"
-6. "Resume hai recently use kiya hua, ya scratch se banana padega?"
-
-6 ke baad: 2-3 sentences mein summarize karo, phir bolo resume daal do. Specifics use karo jo unhone bataya.
-
-Intro (1 line) + Q1 se shuru karo.`;
-
-
-      // ═══════════════════════════════════════════════════════
-      // API HELPERS
-      // ═══════════════════════════════════════════════════════
-
-      // Model routing: 'haiku' for conversation, 'sonnet' for voice moments
-      async function callLLM({ system, messages, temperature = 0.4, max_tokens = 300, model = 'haiku' }) {
-        const res = await fetch('/.netlify/functions/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ system, messages, temperature, max_tokens, model })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Chat API error');
-        const textBlock = (data.content || []).find(c => c.type === 'text');
-        return {
-          text: textBlock ? textBlock.text : '',
-          usage: data.usage || {},
-          cost: data.cost || {},
-          model: data.model || model
-        };
-      }
-
-      // Serper search
-      async function callSearch(queries) {
-        try {
-          const res = await fetch("/.netlify/functions/search", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ queries })
-          });
-          const data = await res.json();
-          return data.searchAvailable ? data.results : null;
-        } catch (err) { console.warn('Search unavailable:', err.message); return null; }
-      }
-
-      // Split long messages into bubbles — client-side fallback when ||| not present
-      function splitIntoBubbles(text) {
-        // First try the ||| delimiter
-        if (text.includes('|||')) {
-          return text.split('|||').map(p => p.trim()).filter(Boolean);
+      // ═══ VOICE TEMPLATES (short — LLM wraps these, doesn't improvise) ═══
+      const VOICE = {
+        joshua: {
+          intro: "Hey! I'm Joshua — I've sat on hiring panels at Flipkart, Meesho, and Zepto. Before I can help, I need to understand where you're at.",
+          ack_short: ["Got it.", "Noted.", "Makes sense.", "Clear.", "Understood."],
+          summary_prefix: "Here's where you stand:",
+          resume_ask: "Drop your resume here — PDF, DOCX, or paste the text.",
+          jd_ask: "Now paste the job description for the role you're targeting.",
+          analyzing: "Give me a moment — I'm scoring your fit.",
+          no_jd_roles: "Based on what you've told me, let me find some roles that fit your profile.",
+        },
+        adi: {
+          intro: "Hey! Main Adi hoon — BITS se nikla, Razorpay mein 3 saal kiya. Chal shuru karte hain.",
+          ack_short: ["Sahi hai.", "Samajh gaya.", "Theek hai.", "Accha.", "Noted."],
+          summary_prefix: "Dekh, tumhara situation yeh hai:",
+          resume_ask: "Resume daal do yahan — PDF, DOCX, ya text paste karo.",
+          jd_ask: "Ab JD paste karo — jo role target kar rahe ho uska.",
+          analyzing: "Ek minute — score nikaal raha hoon.",
+          no_jd_roles: "Jo bataya hai uske basis pe, kuch roles dhundh ta hoon tumhare liye.",
         }
-        // Fallback: if message is >200 chars, split at sentence boundaries
-        if (text.length > 200) {
-          const sentences = text.match(/[^.!?]+[.!?]+\s*/g) || [text];
-          const bubbles = [];
-          let current = '';
-          for (const s of sentences) {
-            if ((current + s).length > 180 && current.length > 0) {
-              bubbles.push(current.trim());
-              current = s;
-            } else {
-              current += s;
-            }
-          }
-          if (current.trim()) bubbles.push(current.trim());
-          // Cap at 3 bubbles max
-          if (bubbles.length > 3) {
-            return [bubbles[0], bubbles.slice(1, -1).join(' '), bubbles[bubbles.length - 1]];
-          }
-          return bubbles.length > 1 ? bubbles : [text];
-        }
-        return [text];
-      }
+      };
 
-      // Session cost tracker
+      // ═══ API HELPERS ═══
       let sessionCost = 0;
 
-      // ═══════════════════════════════════════════════════════
-      // SPRINT 1: ENGINE FUNCTIONS (Groq, scoring, parsing)
-      // ═══════════════════════════════════════════════════════
-
-      function extractJsonObject(raw) {
-        const text = (raw || "").trim().replace(/```json\s*/gi, "").replace(/```\s*/g, "");
-        const s = text.indexOf("{"), e = text.lastIndexOf("}");
-        if (s === -1 || e === -1 || e <= s) throw new Error("No JSON in response");
-        return JSON.parse(text.slice(s, e + 1));
+      async function callLLM({system,messages,temperature=0.4,max_tokens=200,model='haiku'}) {
+        const res = await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages,temperature,max_tokens,model})});
+        const data = await res.json(); if(!res.ok) throw new Error(data.error||'API error');
+        const tb=(data.content||[]).find(c=>c.type==='text');
+        return {text:tb?tb.text:'',usage:data.usage||{},cost:data.cost||{},model:data.model||model};
       }
 
-      const GROQ_FALLBACKS = { 'openai/gpt-oss-120b': 'llama-3.3-70b-versatile', 'qwen/qwen3-32b': 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant': 'llama-3.3-70b-versatile' };
-      async function callGroq(prompt, opts = {}) {
-        const { temperature = 0.2, max_tokens = 4096, model = 'qwen/qwen3-32b', retries = 2, _fb = false } = opts;
-        const fp = prompt + '\n\nCRITICAL: Output ONLY a single valid JSON object.';
-        for (let i = 0; i <= retries; i++) {
-          const ctrl = new AbortController(); const tid = setTimeout(() => ctrl.abort(), 25000);
-          try {
-            const res = await fetch("/.netlify/functions/transform", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: fp, temperature, max_tokens, model }), signal: ctrl.signal });
-            clearTimeout(tid); const text = await res.text(); let data; try { data = JSON.parse(text); } catch { data = { error: text }; }
-            if (!res.ok) throw new Error(data?.error || 'API ' + res.status);
-            const found = (data.content || []).find(c => c.type === "text"); return found ? found.text : "";
-          } catch (err) {
-            clearTimeout(tid); const msg = err.name === 'AbortError' ? 'Timeout' : err.message;
-            if (i === retries) { const fb = GROQ_FALLBACKS[model]; if (fb && !_fb) return callGroq(prompt, { ...opts, model: fb, retries: 1, _fb: true }); throw new Error(msg); }
-            await new Promise(r => setTimeout(r, 1500 * (i + 1)));
-          }
-        }
+      async function callSearch(queries) {
+        try { const res=await fetch("/.netlify/functions/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({queries})}); const data=await res.json(); return data.searchAvailable?data.results:null; } catch(e){return null;}
       }
 
       function formatSearchContext(sr) {
-        if (!sr) return ''; let ctx = '\n=== WEB SEARCH ===\n';
-        Object.entries(sr).forEach(([q, items]) => { ctx += `QUERY: "${q}"\n`; items.forEach((r, i) => { ctx += `  [${i + 1}] ${r.title}\n      ${r.snippet}\n      ${r.url}\n`; }); ctx += '\n'; }); return ctx;
+        if(!sr)return '';let ctx='\n=== WEB SEARCH ===\n';Object.entries(sr).forEach(([q,items])=>{ctx+=`QUERY: "${q}"\n`;items.forEach((r,i)=>{ctx+=`  [${i+1}] ${r.title}\n      ${r.snippet}\n      ${r.url}\n`;});ctx+='\n';});return ctx;
       }
 
-      function runATSCheck(resumeObj, jdData) {
-        const rt = [resumeObj.summary || '', ...(resumeObj.experience || []).flatMap(e => [e.title, e.company, ...(e.achievements || [])].filter(Boolean)), ...(resumeObj.skills || []), ...(resumeObj.education || []).map(e => `${e.degree} ${e.institution}`)].join(' ').toLowerCase();
-        const norm = s => s.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9+#.\s-]/g, '').trim();
-        const aliases = { 'javascript': ['js', 'javascript'], 'typescript': ['ts', 'typescript'], 'python': ['python', 'py'], 'machine learning': ['ml', 'machine learning'], 'amazon web services': ['aws', 'amazon web services'], 'google cloud platform': ['gcp', 'google cloud'], 'kubernetes': ['k8s', 'kubernetes'], 'postgresql': ['postgres', 'postgresql'], 'react.js': ['react', 'reactjs'], 'node.js': ['node', 'nodejs'], 'docker': ['docker', 'containerization'], 'agile': ['agile', 'scrum', 'kanban'] };
-        const aLookup = {}; Object.entries(aliases).forEach(([c, al]) => al.forEach(a => { aLookup[a] = c; }));
-        function found(kw) { const n = norm(kw); if (rt.includes(n)) return true; const ws = n.split(/\s+/).filter(w => w.length > 2); if (ws.length > 1 && ws.every(w => rt.includes(w))) return true; const can = aLookup[n]; if (can && (aliases[can] || []).some(a => rt.includes(a))) return true; return false; }
-        const mand = (jdData.mandatorySkills || []).map(s => { const c = s.replace(/\s*\(.*?\)\s*/g, '').trim(); return { skill: c, found: found(c) }; });
-        const nice = (jdData.niceToHave || []).map(s => { const c = s.replace(/\s*\(.*?\)\s*/g, '').trim(); return { skill: c, found: found(c) }; });
-        const mf = mand.filter(m => m.found).length, mt = mand.length, nf = nice.filter(n => n.found).length, nt = nice.length;
-        return { atsScore: Math.round((mt > 0 ? mf / mt : 1) * 70 + (nt > 0 ? nf / nt : 1) * 20 + 10), mandatory: mand, niceToHave: nice, mandatoryFound: mf, mandatoryTotal: mt, missingCritical: mand.filter(m => !m.found).map(m => m.skill) };
+      function extractJsonObject(raw) {
+        const text=(raw||"").trim().replace(/```json\s*/gi,"").replace(/```\s*/g,"");const s=text.indexOf("{"),e=text.lastIndexOf("}");
+        if(s===-1||e===-1||e<=s)throw new Error("No JSON");return JSON.parse(text.slice(s,e+1));
       }
 
-      function computeDualScores(bd) {
-        if (!bd) return { atsScore: 0, hmScore: 0, clearance: 'Grounded' };
-        const g = k => { const d = bd[k]; return d ? (d.score / d.max) * 100 : 0; };
-        const ats = Math.round(g('mustHaveCoverage') * .40 + g('atsStructure') * .25 + g('domainTooling') * .20 + g('responsibilitiesAlignment') * .15);
-        const hm = Math.round(g('impactMetrics') * .30 + g('seniorityScope') * .25 + g('tonalityFit') * .20 + g('differentiators') * .15 + g('responsibilitiesAlignment') * .10);
-        return { atsScore: ats, hmScore: hm, clearance: (ats >= 75 && hm >= 70) ? 'Cleared' : (ats < 50 || hm < 45) ? 'Grounded' : 'Conditional' };
-      }
-
-      function validateCompanyData(d) { if (!d.techStack || d.techStack.length < 2) d.techStack = d.techStack || ["Not specified"]; if (!d.coreValues || d.coreValues.length < 2) d.coreValues = d.coreValues || ["Not specified"]; if (!d.culturalTone) d.culturalTone = "professional"; if (!d.emphasize) d.emphasize = ["relevant experience"]; if (!d.commonChallenges) d.commonChallenges = []; if (!d.redFlags) d.redFlags = []; return d; }
-      function validateJDData(d) { if (!d.mandatorySkills || d.mandatorySkills.length < 2) d.mandatorySkills = d.mandatorySkills || []; if (!d.actionVerbs || d.actionVerbs.length < 2) d.actionVerbs = ["Led", "Built", "Designed", "Improved"]; if (!d.niceToHave) d.niceToHave = []; if (!d.responsibilityPatterns) d.responsibilityPatterns = []; return d; }
-
-      async function parseResumeFile(file) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        if (!['pdf', 'docx', 'doc', 'txt'].includes(ext)) throw new Error('Use PDF, DOCX, or TXT.');
-        let text = '';
-        if (ext === 'txt') { text = await file.text(); }
-        else if (ext === 'docx' || ext === 'doc') { const ab = await file.arrayBuffer(); const r = await mammoth.extractRawText({ arrayBuffer: ab }); text = r.value; }
-        else if (ext === 'pdf') { const ab = await file.arrayBuffer(); const pdf = await pdfjsLib.getDocument({ data: ab }).promise; const pages = []; for (let i = 1; i <= pdf.numPages; i++) { const pg = await pdf.getPage(i); const ct = await pg.getTextContent(); pages.push(ct.items.map(it => it.str).join(' ')); } text = pages.join('\n\n'); }
-        text = text.trim();
-        if (text.length < 20) throw new Error('Could not extract text — may be a scanned image.');
-        return text;
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // LOGO COMPONENT
-      // ═══════════════════════════════════════════════════════
-
-      function Logo({ size = 20, onDark = false }) {
-        const bubbleSize = Math.round(size * 0.8);
-        const textColor = onDark ? '#F5F0EB' : 'var(--color-text)';
-        const fill = onDark ? 'rgba(122,155,90,0.2)' : 'var(--color-primary-light)';
-        const stroke = onDark ? 'rgba(122,155,90,0.6)' : 'var(--color-primary)';
-        return (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-wordmark)', fontWeight: 800, fontSize: size, letterSpacing: '-0.5px', color: textColor, lineHeight: 1 }}>r</span>
-            <svg width={bubbleSize} height={bubbleSize} viewBox="0 0 20 20" style={{ margin: '0 -0.5px', position: 'relative', top: Math.round(bubbleSize / 18), flexShrink: 0 }}>
-              <path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z"
-                fill={fill} stroke={stroke} strokeWidth="1.1" strokeLinejoin="round" />
-              <circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)" />
-              <circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)" />
-            </svg>
-            <span style={{ fontFamily: 'var(--font-wordmark)', fontWeight: 800, fontSize: size, letterSpacing: '-0.5px', color: textColor, lineHeight: 1 }}>lecrft</span>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // PERSONA AVATAR
-      // ═══════════════════════════════════════════════════════
-
-      function PersonaAvatar({ persona, size = 32 }) {
-        const isJ = persona === 'joshua';
-        const bg = isJ ? 'var(--color-joshua)' : 'var(--color-adi)';
-        const letter = isJ ? 'J' : 'A';
-        return (
-          <div style={{
-            width: size, height: size, borderRadius: '50%', background: bg, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: 'var(--font-wordmark)', fontSize: Math.round(size * 0.42), fontWeight: 800,
-            flexShrink: 0,
-          }}>{letter}</div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // MESSAGE BUBBLE
-      // ═══════════════════════════════════════════════════════
-
-      function MessageBubble({ role, persona, content, msgPersona }) {
-        // Use message-level persona if available (for history), fall back to current
-        const displayPersona = msgPersona || persona;
-        if (role === 'user') {
-          return (
-            <div className="msg-in" style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 16px' }}>
-              <div style={{
-                background: 'var(--color-primary-muted)', color: '#fff',
-                borderRadius: '14px 4px 14px 14px', padding: '10px 14px',
-                fontSize: 14, lineHeight: 1.55, maxWidth: '78%',
-              }}>{content}</div>
-            </div>
-          );
+      const GROQ_FB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','qwen/qwen3-32b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
+      async function callGroq(prompt,opts={}) {
+        const{temperature=0.2,max_tokens=4096,model='qwen/qwen3-32b',retries=2,_fb=false}=opts;
+        const fp=prompt+'\n\nOutput ONLY a single valid JSON object.';
+        for(let i=0;i<=retries;i++){const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),25000);
+          try{const res=await fetch("/.netlify/functions/transform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fp,temperature,max_tokens,model}),signal:ctrl.signal});clearTimeout(tid);const text=await res.text();let data;try{data=JSON.parse(text);}catch{data={error:text};}if(!res.ok)throw new Error(data?.error||'API '+res.status);const found=(data.content||[]).find(c=>c.type==="text");return found?found.text:"";}
+          catch(err){clearTimeout(tid);if(i===retries){const fb=GROQ_FB[model];if(fb&&!_fb)return callGroq(prompt,{...opts,model:fb,retries:1,_fb:true});throw err;}await new Promise(r=>setTimeout(r,1500*(i+1)));}
         }
-        return (
-          <div className="msg-in" style={{ display: 'flex', gap: 8, padding: '0 16px', maxWidth: '88%' }}>
-            <PersonaAvatar persona={displayPersona} size={28} />
-            <div style={{
-              background: 'var(--color-elevated)', border: '1px solid var(--color-border)',
-              borderRadius: '4px 14px 14px 14px', padding: '10px 14px',
-              fontSize: 14, lineHeight: 1.55,
-            }}>{content}</div>
+      }
+
+      function validateCompanyData(d){d.techStack=d.techStack||["Not specified"];d.coreValues=d.coreValues||["Not specified"];d.culturalTone=d.culturalTone||"professional";d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;}
+      function validateJDData(d){d.mandatorySkills=d.mandatorySkills||[];d.actionVerbs=d.actionVerbs||["Led","Built","Designed"];d.niceToHave=d.niceToHave||[];d.responsibilityPatterns=d.responsibilityPatterns||[];return d;}
+
+      function computeDualScores(bd){if(!bd)return{atsScore:0,hmScore:0,clearance:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const ats=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const hm=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{atsScore:ats,hmScore:hm,clearance:(ats>=75&&hm>=70)?'Cleared':(ats<50||hm<45)?'Grounded':'Conditional'};}
+
+      async function parseResumeFile(file){const ext=file.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(ext))throw new Error('Use PDF, DOCX, or TXT.');let text='';if(ext==='txt'){text=await file.text();}else if(ext==='docx'||ext==='doc'){const ab=await file.arrayBuffer();text=(await mammoth.extractRawText({arrayBuffer:ab})).value;}else if(ext==='pdf'){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;const pgs=[];for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();pgs.push(ct.items.map(it=>it.str).join(' '));}text=pgs.join('\n\n');}text=text.trim();if(text.length<20)throw new Error('Could not extract text.');return text;}
+
+
+      // ═══ SHARED UI COMPONENTS ═══
+
+      function Logo({size=20}){const bs=Math.round(size*0.8);return(<div style={{display:'flex',alignItems:'center'}}><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>r</span><svg width={bs} height={bs} viewBox="0 0 20 20" style={{margin:'0 -0.5px',position:'relative',top:Math.round(bs/18),flexShrink:0}}><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill="var(--color-primary-light)" stroke="var(--color-primary)" strokeWidth="1.1" strokeLinejoin="round"/><circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)"/><circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)"/></svg><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>lecrft</span></div>);}
+
+      function PersonaAvatar({persona,size=32}){const isJ=persona==='joshua';return(<div style={{width:size,height:size,borderRadius:'50%',background:isJ?'var(--color-joshua)':'var(--color-adi)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-wordmark)',fontSize:Math.round(size*.42),fontWeight:800,flexShrink:0}}>{isJ?'J':'A'}</div>);}
+
+      function AssistantMsg({persona,children}){return(<div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px',maxWidth:'88%'}}><PersonaAvatar persona={persona} size={28}/><div style={{background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55}}>{children}</div></div>);}
+
+      function UserMsg({children}){return(<div className="msg-in" style={{display:'flex',justifyContent:'flex-end',padding:'0 16px'}}><div style={{background:'var(--color-primary-muted)',color:'#fff',borderRadius:'14px 4px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55,maxWidth:'78%'}}>{children}</div></div>);}
+
+      function StatusMsg({text,loading}){return(<div className="msg-in" style={{display:'flex',justifyContent:'center',padding:'4px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--color-text-muted)',fontWeight:500,background:'var(--color-elevated)',border:'1px solid var(--color-border-light)',borderRadius:'var(--radius-full)',padding:'4px 14px'}}>{loading&&<div style={{width:10,height:10,border:'2px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>}{text}</div></div>);}
+
+      function TypingDots({persona}){return(<div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px'}}><PersonaAvatar persona={persona} size={28}/><div style={{display:'flex',gap:5,padding:'12px 16px',background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px'}}>{[0,.15,.3].map(d=><div key={d} style={{width:7,height:7,borderRadius:'50%',background:'var(--color-text-muted)',animation:`dotPulse 1.2s ease-in-out ${d}s infinite`}}/>)}</div></div>);}
+
+      function ActionButton({label,onClick,primary}){return(<button onClick={onClick} style={{padding:'8px 18px',borderRadius:'var(--radius-md)',background:primary?'var(--color-primary)':'var(--color-surface)',color:primary?'#fff':'var(--color-text)',border:primary?'none':'1px solid var(--color-border)',fontSize:13,fontWeight:600,cursor:'pointer'}}>{label}</button>);}
+
+      function FitCard({data}){if(!data)return null;const{score,atsScore,hmScore,clearance,gaps,strengths,categories,potential}=data;const cl=clearance==='Cleared'?'var(--color-success)':clearance==='Grounded'?'var(--color-danger)':'var(--color-warning)';
+        return(<div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-primary)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-primary)'}}>FIT SNAPSHOT</span><div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:'var(--color-primary)'}}>{score}</span><span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:'var(--radius-full)',background:cl+'18',color:cl}}>{clearance}</span></div></div>
+          <div style={{display:'flex',gap:5,marginBottom:10,flexWrap:'wrap'}}>{[['ATS',atsScore],['HM',hmScore]].map(([l,v])=><div key={l} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:9,color:'var(--color-text-muted)'}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:600,color:v>=65?'var(--color-success)':'var(--color-warning)'}}>{v}</div></div>)}{categories&&Object.entries(categories).slice(0,3).map(([k,v])=><div key={k} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:8,color:'var(--color-text-muted)',textTransform:'uppercase'}}>{k.replace(/([A-Z])/g,' $1').trim().split(' ').slice(0,2).join(' ')}</div><div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:600,color:(v.score/v.max)>=0.7?'var(--color-success)':'var(--color-warning)'}}>{v.score}/{v.max}</div></div>)}</div>
+          {gaps&&gaps.length>0&&<div style={{background:'var(--color-accent-light)',borderRadius:'var(--radius-sm)',padding:8,marginBottom:6}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-accent)',marginBottom:3}}>GAPS</div>{gaps.slice(0,3).map((g,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{g.item||g} — {g.reason||''}</div>)}</div>}
+          {strengths&&strengths.length>0&&<div style={{background:'var(--color-primary-light)',borderRadius:'var(--radius-sm)',padding:8}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-primary)',marginBottom:3}}>STRENGTHS</div>{(Array.isArray(strengths)?strengths:[strengths]).slice(0,3).map((s,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{typeof s==='string'?s:s.item||''}</div>)}</div>}
+          {potential&&<div style={{marginTop:8,fontSize:11,color:'var(--color-text-muted)'}}>Potential: <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--color-primary)'}}>{potential}</span></div>}
+        </div></div>);
+      }
+
+      function JobCard({jobs}){if(!jobs||!jobs.length)return null;
+        return(<div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-accent)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-accent)'}}>
+          <div style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-accent)',marginBottom:10}}>MATCHING ROLES</div>
+          {jobs.map((j,i)=><div key={i} style={{marginBottom:i<jobs.length-1?10:0,paddingBottom:i<jobs.length-1?10:0,borderBottom:i<jobs.length-1?'1px solid var(--color-border-light)':'none'}}>
+            <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{j.title}</div>
+            {j.snippet&&<div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>{j.snippet}</div>}
+            <a href={j.url} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--color-primary)',textDecoration:'none'}}>{j.url.slice(0,60)}...</a>
+          </div>)}
+        </div></div>);
+      }
+
+
+      // ═══ AUTH SCREEN ═══
+      function AuthScreen(){
+        const[mode,setMode]=useState('login');const[email,setEmail]=useState('');const[password,setPassword]=useState('');const[loading,setLoading]=useState(false);const[error,setError]=useState('');
+        const go=async(e)=>{e.preventDefault();setLoading(true);setError('');try{let r;if(mode==='login')r=await supabase.auth.signInWithPassword({email,password});else r=await supabase.auth.signUp({email,password});if(r.error)throw r.error;}catch(err){setError(err.message);}setLoading(false);};
+        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+          <Logo size={36}/><div style={{fontSize:13,color:'var(--color-text-muted)',marginTop:8,marginBottom:32,fontStyle:'italic'}}>Your career, in conversation.</div>
+          <div style={{width:'100%',maxWidth:360,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:28}}>
+            <div style={{fontSize:18,fontWeight:600,marginBottom:4}}>{mode==='login'?'Welcome back':'Create account'}</div>
+            <div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:20}}>{mode==='login'?'Joshua and Adi are ready.':'Start your career conversation.'}</div>
+            <button onClick={()=>supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}})} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border)',background:'var(--color-surface)',color:'var(--color-text)',fontSize:14,fontWeight:500,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16,cursor:'pointer'}}>
+              <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>Continue with Google</button>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}><div style={{flex:1,height:1,background:'var(--color-border)'}}/><span style={{fontSize:11,color:'var(--color-text-muted)'}}>or</span><div style={{flex:1,height:1,background:'var(--color-border)'}}/></div>
+            <form onSubmit={go}><input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required style={{width:'100%',marginBottom:10}}/><input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} style={{width:'100%',marginBottom:14}}/>{error&&<div style={{fontSize:12,color:'var(--color-danger)',marginBottom:10}}>{error}</div>}<button type="submit" disabled={loading} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',background:'var(--color-primary)',color:'#fff',border:'none',fontSize:14,fontWeight:600,opacity:loading?.6:1,cursor:'pointer'}}>{loading?'...':(mode==='login'?'Sign in':'Sign up')}</button></form>
+            <div style={{textAlign:'center',marginTop:14,fontSize:13,color:'var(--color-text-muted)'}}>{mode==='login'?"No account?":"Have account?"}<button onClick={()=>{setMode(mode==='login'?'signup':'login');setError('');}} style={{background:'none',border:'none',color:'var(--color-primary)',fontWeight:600,fontSize:13,marginLeft:4,cursor:'pointer'}}>{mode==='login'?'Sign up':'Sign in'}</button></div>
           </div>
-        );
+        </div>);
+      }
+
+      // ═══ LANGUAGE SELECT ═══
+      function LanguageSelect({onSelect}){
+        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+          <Logo size={32}/><div style={{fontSize:22,fontWeight:700,marginTop:24,marginBottom:8}}>Pick your voice</div><div style={{fontSize:14,color:'var(--color-text-secondary)',marginBottom:32,textAlign:'center',maxWidth:360}}>Same intelligence, different personality.</div>
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center'}}>
+            {[{id:'joshua',lang:'en',name:'Joshua',tag:'Career strategist',sample:'"Got it. You\'re a real contender — let me show you where."',label:'English',color:'var(--color-joshua)',light:'var(--color-joshua-light)'},
+              {id:'adi',lang:'hinglish',name:'Adi',tag:'Woh dost jo seedha bolta hai',sample:'"Dekh, seedha bolu? Tu genuine contender hai."',label:'Hinglish',color:'var(--color-adi)',light:'var(--color-adi-light)'}
+            ].map(p=><button key={p.id} onClick={()=>onSelect(p.lang,p.id)} style={{width:260,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',cursor:'pointer'}}>
+              <div style={{background:p.light,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><PersonaAvatar persona={p.id} size={40}/><div><div style={{fontWeight:700,fontSize:16,color:p.color}}>{p.name}</div><div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{p.tag}</div></div></div>
+              <div style={{padding:'12px 18px'}}><div style={{fontSize:13,fontStyle:'italic',color:'var(--color-text-secondary)',lineHeight:1.5,borderLeft:`2px solid ${p.color}`,paddingLeft:10,opacity:0.8}}>{p.sample}</div><div style={{marginTop:10,display:'inline-block',padding:'3px 10px',borderRadius:'var(--radius-full)',background:p.light,fontSize:11,fontWeight:600,color:p.color}}>{p.label}</div></div>
+            </button>)}
+          </div>
+        </div>);
+      }
+
+      // ═══ SESSION HUB ═══
+      function SessionHub({user,userProfile,onStartChat,onSignOut}){
+        const persona=userProfile?.language_pref==='hinglish'?'adi':'joshua';const other=persona==='joshua'?'adi':'joshua';const name=userProfile?.name||user?.email?.split('@')[0]||'there';
+        const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
+        const toggle=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
+        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}><Logo size={18}/><div style={{display:'flex',gap:10,alignItems:'center'}}><button onClick={toggle} style={{width:40,height:24,borderRadius:12,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative'}}><div style={{width:18,height:18,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?19:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}/></button><button onClick={onSignOut} style={{padding:'5px 12px',borderRadius:'var(--radius-full)',border:'1px solid var(--color-border)',background:'none',fontSize:12,color:'var(--color-text-muted)',fontWeight:500,cursor:'pointer'}}>Sign out</button></div></nav>
+          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+            <Logo size={32}/><div style={{fontSize:20,fontWeight:600,marginTop:20,marginBottom:4}}>Hey {name}</div><div style={{fontSize:14,color:'var(--color-text-secondary)',marginBottom:36,textAlign:'center',maxWidth:360}}>Ready to work on your next role?</div>
+            <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center',marginBottom:32}}>
+              {[persona,other].map((p,i)=><button key={p} onClick={()=>onStartChat(p)} style={{width:280,background:'var(--color-surface)',border:i===0?'2px solid var(--color-primary)':'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',opacity:i===0?1:0.75,cursor:'pointer'}}>
+                <div style={{background:p==='joshua'?'var(--color-joshua-light)':'var(--color-adi-light)',padding:'18px 20px',display:'flex',gap:12,alignItems:'center'}}><PersonaAvatar persona={p} size={44}/><div><div style={{fontWeight:700,fontSize:17,color:p==='joshua'?'var(--color-joshua)':'var(--color-adi)'}}>{p==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:12,color:'var(--color-text-secondary)'}}>{p==='joshua'?'English · Career strategist':'Hinglish · Career dost'}</div></div></div>
+                <div style={{padding:'14px 20px',textAlign:'center'}}><span style={{fontSize:14,fontWeight:600,color:i===0?'var(--color-primary)':'var(--color-text-muted)'}}>{i===0?'Start conversation':'Try '+( p==='joshua'?'English':'Hinglish')}</span></div>
+              </button>)}
+            </div>
+          </div>
+        </div>);
       }
 
 
       // ═══════════════════════════════════════════════════════
-      // TYPING INDICATOR
+      // CONVERSATION PAGE — DETERMINISTIC FLOW
       // ═══════════════════════════════════════════════════════
 
-      function TypingIndicator({ persona }) {
-        return (
-          <div className="msg-in" style={{ display: 'flex', gap: 8, padding: '0 16px' }}>
-            <PersonaAvatar persona={persona} size={28} />
-            <div style={{ display: 'flex', gap: 5, padding: '12px 16px', background: 'var(--color-elevated)', border: '1px solid var(--color-border)', borderRadius: '4px 14px 14px 14px' }}>
-              {[0, 0.15, 0.3].map(d => (
-                <div key={d} className="typing-dot" style={{ animation: `dotPulse 1.2s ease-in-out ${d}s infinite` }} />
-              ))}
-            </div>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // FIT SNAPSHOT CARD (inline artifact)
-      // ═══════════════════════════════════════════════════════
-
-      function FitSnapshotCard({ data }) {
-        if (!data) return null;
-        const { score, atsScore, hmScore, clearance, gaps, strengths, categories, potential } = data;
-        const cl = clearance === 'Cleared' ? 'var(--color-success)' : clearance === 'Grounded' ? 'var(--color-danger)' : 'var(--color-warning)';
-        return (
-          <div className="msg-in" style={{ padding: '0 16px 0 52px' }}>
-            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-primary)', borderRadius: 'var(--radius-lg)', padding: 16, borderLeft: '3px solid var(--color-primary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'var(--color-primary)' }}>FIT SNAPSHOT</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 22, fontWeight: 600, color: 'var(--color-primary)' }}>{score}</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 'var(--radius-full)', background: cl + '18', color: cl }}>{clearance}</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 5, marginBottom: 10, flexWrap: 'wrap' }}>
-                {[['ATS', atsScore], ['HM', hmScore]].map(([label, val]) => (
-                  <div key={label} style={{ flex: '1 1 50px', textAlign: 'center', padding: 5, background: 'var(--color-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)' }}>
-                    <div style={{ fontSize: 9, color: 'var(--color-text-muted)' }}>{label}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: val >= 65 ? 'var(--color-success)' : 'var(--color-warning)' }}>{val}</div>
-                  </div>
-                ))}
-                {categories && Object.entries(categories).slice(0, 3).map(([k, v]) => (
-                  <div key={k} style={{ flex: '1 1 50px', textAlign: 'center', padding: 5, background: 'var(--color-elevated)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-light)' }}>
-                    <div style={{ fontSize: 8, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>{k.replace(/([A-Z])/g, ' $1').trim().split(' ').slice(0, 2).join(' ')}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600, color: (v.score / v.max) >= 0.7 ? 'var(--color-success)' : 'var(--color-warning)' }}>{v.score}/{v.max}</div>
-                  </div>
-                ))}
-              </div>
-              {gaps && gaps.length > 0 && (
-                <div style={{ background: 'var(--color-accent-light)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 6 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-accent)', marginBottom: 3 }}>GAPS</div>
-                  {gaps.slice(0, 3).map((g, i) => <div key={i} style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 1 }}>{g.item} — {g.reason}</div>)}
-                </div>
-              )}
-              {strengths && strengths.length > 0 && (
-                <div style={{ background: 'var(--color-primary-light)', borderRadius: 'var(--radius-sm)', padding: 8 }}>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--color-primary)', marginBottom: 3 }}>STRENGTHS</div>
-                  {(Array.isArray(strengths) ? strengths : [strengths]).slice(0, 3).map((s, i) => <div key={i} style={{ fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 1 }}>{typeof s === 'string' ? s : s.item || ''}</div>)}
-                </div>
-              )}
-              {potential && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-text-muted)' }}>Potential after optimization: <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: 'var(--color-primary)' }}>{potential}</span></div>}
-            </div>
-          </div>
-        );
-      }
-
-      // Status/progress message in chat
-      function StatusBubble({ text, loading }) {
-        return (
-          <div className="msg-in" style={{ display: 'flex', justifyContent: 'center', padding: '4px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500, background: 'var(--color-elevated)', border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-full)', padding: '4px 14px' }}>
-              {loading && <div style={{ width: 10, height: 10, border: '2px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />}
-              {text}
-            </div>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // AUTH SCREEN
-      // ═══════════════════════════════════════════════════════
-
-      function AuthScreen({ onAuth }) {
-        const [mode, setMode] = useState('login');
-        const [email, setEmail] = useState('');
-        const [password, setPassword] = useState('');
-        const [loading, setLoading] = useState(false);
-        const [error, setError] = useState('');
-
-        const handleSubmit = async (e) => {
-          e.preventDefault();
-          setLoading(true);
-          setError('');
-          try {
-            let result;
-            if (mode === 'login') {
-              result = await supabase.auth.signInWithPassword({ email, password });
-            } else {
-              result = await supabase.auth.signUp({ email, password });
-            }
-            if (result.error) throw result.error;
-          } catch (err) {
-            setError(err.message || 'Authentication failed');
-          }
-          setLoading(false);
-        };
-
-        const handleGoogle = async () => {
-          await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
-        };
-
-        return (
-          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <div style={{ marginBottom: 32 }}>
-              <Logo size={36} />
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 32, fontStyle: 'italic', fontFamily: "'DM Serif Display', Georgia, serif" }}>
-              Your career, in conversation.
-            </div>
-
-            <div style={{ width: '100%', maxWidth: 360, background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-xl)', padding: 28 }}>
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>
-                {mode === 'login' ? 'Welcome back' : 'Create your account'}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>
-                {mode === 'login' ? 'Joshua and Adi are ready when you are.' : 'Start a conversation about your career.'}
-              </div>
-
-              {/* Google OAuth */}
-              <button onClick={handleGoogle} style={{
-                width: '100%', padding: '10px 0', borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-border)', background: 'var(--color-surface)',
-                color: 'var(--color-text)', fontSize: 14, fontWeight: 500,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 16,
-              }}>
-                <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
-                Continue with Google
-              </button>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
-                <span style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>or</span>
-                <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
-              </div>
-
-              {/* Email form */}
-              <form onSubmit={handleSubmit}>
-                <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required
-                  style={{ width: '100%', marginBottom: 10 }} />
-                <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6}
-                  style={{ width: '100%', marginBottom: 14 }} />
-                {error && <div style={{ fontSize: 12, color: 'var(--color-danger)', marginBottom: 10 }}>{error}</div>}
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', padding: '10px 0', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--color-primary)', color: '#fff', border: 'none',
-                  fontSize: 14, fontWeight: 600, opacity: loading ? 0.6 : 1,
-                }}>
-                  {loading ? 'Working...' : (mode === 'login' ? 'Sign in' : 'Sign up')}
-                </button>
-              </form>
-
-              <div style={{ textAlign: 'center', marginTop: 14, fontSize: 13, color: 'var(--color-text-muted)' }}>
-                {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
-                <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(''); }}
-                  style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: 13, marginLeft: 4 }}>
-                  {mode === 'login' ? 'Sign up' : 'Sign in'}
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // LANGUAGE SELECTION
-      // ═══════════════════════════════════════════════════════
-
-      function LanguageSelect({ onSelect }) {
-        return (
-          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <Logo size={32} />
-            <div style={{ fontSize: 22, fontWeight: 700, marginTop: 24, marginBottom: 8 }}>Pick your voice</div>
-            <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 32, textAlign: 'center', maxWidth: 360 }}>
-              Same intelligence, different personality. Choose the one that feels like your corner.
-            </div>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {/* Joshua */}
-              <button onClick={() => onSelect('en', 'joshua')} style={{
-                width: 260, background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
-                transition: 'border-color 0.2s',
-              }}>
-                <div style={{ background: 'var(--color-joshua-light)', padding: '16px 18px', display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <PersonaAvatar persona="joshua" size={40} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-joshua)' }}>Joshua</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>The career strategist</div>
-                  </div>
-                </div>
-                <div style={{ padding: '12px 18px' }}>
-                  <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--color-text-secondary)', lineHeight: 1.5, borderLeft: '2px solid var(--color-joshua)', paddingLeft: 10, opacity: 0.8 }}>
-                    "I've read the whole thing. You're a real contender — let me show you where."
-                  </div>
-                  <div style={{ marginTop: 10, display: 'inline-block', padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--color-joshua-light)', fontSize: 11, fontWeight: 600, color: 'var(--color-joshua)' }}>
-                    English
-                  </div>
-                </div>
-              </button>
-
-              {/* Adi */}
-              <button onClick={() => onSelect('hinglish', 'adi')} style={{
-                width: 260, background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
-                transition: 'border-color 0.2s',
-              }}>
-                <div style={{ background: 'var(--color-adi-light)', padding: '16px 18px', display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <PersonaAvatar persona="adi" size={40} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--color-adi)' }}>Adi</div>
-                    <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>Woh dost jo seedha bolta hai</div>
-                  </div>
-                </div>
-                <div style={{ padding: '12px 18px' }}>
-                  <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--color-text-secondary)', lineHeight: 1.5, borderLeft: '2px solid var(--color-adi)', paddingLeft: 10, opacity: 0.8 }}>
-                    "Dekh, seedha bolu? Tu genuine contender hai. Ek gap hai — fix karte hain."
-                  </div>
-                  <div style={{ marginTop: 10, display: 'inline-block', padding: '3px 10px', borderRadius: 'var(--radius-full)', background: 'var(--color-adi-light)', fontSize: 11, fontWeight: 600, color: 'var(--color-adi)' }}>
-                    Hinglish
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // SESSION HUB (home screen after auth)
-      // ═══════════════════════════════════════════════════════
-
-      function SessionHub({ user, userProfile, onStartChat, onSignOut, onSwitchPersona }) {
-        const persona = userProfile?.language_pref === 'hinglish' ? 'adi' : 'joshua';
-        const otherPersona = persona === 'joshua' ? 'adi' : 'joshua';
-        const name = userProfile?.name || user?.email?.split('@')[0] || 'there';
-
-        const [theme, setTheme] = useState(() => {
-          try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; }
-        });
-        const toggleTheme = () => {
-          const n = theme === 'dark' ? 'light' : 'dark';
-          setTheme(n);
-          document.documentElement.setAttribute('data-theme', n);
-          try { localStorage.setItem('rc_theme', n); } catch {}
-        };
-
-        return (
-          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            {/* Nav */}
-            <nav style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: '12px 16px', borderBottom: '1px solid var(--color-border)',
-              background: 'var(--color-surface)',
-            }}>
-              <Logo size={18} />
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <button onClick={toggleTheme} style={{
-                  width: 40, height: 24, borderRadius: 12,
-                  background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)',
-                  border: 'none', position: 'relative', transition: 'background 0.3s',
-                }}>
-                  <div style={{
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: theme === 'dark' ? 'var(--color-bg)' : '#fff',
-                    position: 'absolute', top: 3,
-                    left: theme === 'dark' ? 19 : 3,
-                    transition: 'left 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.3s',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-                  }} />
-                </button>
-                <button onClick={onSignOut} style={{
-                  padding: '5px 12px', borderRadius: 'var(--radius-full)',
-                  border: '1px solid var(--color-border)', background: 'none',
-                  fontSize: 12, color: 'var(--color-text-muted)', fontWeight: 500,
-                }}>Sign out</button>
-              </div>
-            </nav>
-
-            {/* Content */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-              <Logo size={32} />
-              <div style={{ fontSize: 20, fontWeight: 600, marginTop: 20, marginBottom: 4 }}>
-                Hey {name}
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 36, textAlign: 'center', maxWidth: 360 }}>
-                Ready to work on your next role? Pick who you want in your corner.
-              </div>
-
-              <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 32 }}>
-                {/* Primary persona */}
-                <button onClick={() => onStartChat(persona)} style={{
-                  width: 280, background: 'var(--color-surface)', border: '2px solid var(--color-primary)',
-                  borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
-                }}>
-                  <div style={{
-                    background: persona === 'joshua' ? 'var(--color-joshua-light)' : 'var(--color-adi-light)',
-                    padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center',
-                  }}>
-                    <PersonaAvatar persona={persona} size={44} />
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 17, color: persona === 'joshua' ? 'var(--color-joshua)' : 'var(--color-adi)' }}>
-                        {persona === 'joshua' ? 'Joshua' : 'Adi'}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        {persona === 'joshua' ? 'Your career strategist' : 'Tera career dost'}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-primary)' }}>Start conversation</span>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 8h8M8 4l4 4-4 4" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </div>
-                </button>
-
-                {/* Switch persona option */}
-                <button onClick={() => onSwitchPersona(otherPersona)} style={{
-                  width: 280, background: 'var(--color-surface)', border: '1px solid var(--color-border)',
-                  borderRadius: 'var(--radius-xl)', padding: 0, textAlign: 'left', overflow: 'hidden',
-                  opacity: 0.75, transition: 'opacity 0.2s',
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '0.75'}>
-                  <div style={{
-                    background: otherPersona === 'joshua' ? 'var(--color-joshua-light)' : 'var(--color-adi-light)',
-                    padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center',
-                  }}>
-                    <PersonaAvatar persona={otherPersona} size={44} />
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 17, color: otherPersona === 'joshua' ? 'var(--color-joshua)' : 'var(--color-adi)' }}>
-                        {otherPersona === 'joshua' ? 'Joshua' : 'Adi'}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        {otherPersona === 'joshua' ? 'English · Career strategist' : 'Hinglish · Seedha baat'}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ padding: '12px 20px', textAlign: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--color-text-muted)' }}>Switch to {otherPersona === 'joshua' ? 'English' : 'Hinglish'}</span>
-                  </div>
-                </button>
-              </div>
-
-              <div style={{ fontSize: 12, color: 'var(--color-text-muted)', textAlign: 'center', maxWidth: 320 }}>
-                Your conversations are saved. Pick up where you left off or start fresh.
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-
-      // ═══════════════════════════════════════════════════════
-      // CONVERSATION PAGE (main product view)
-      // ═══════════════════════════════════════════════════════
-
-
-      function ConversationPage({ user, initialPersona, onSignOut, onBack }) {
-        const [messages, setMessages] = useState([]);
+      function ConversationPage({user,initialPersona,onSignOut,onBack}){
+        // ─── State ───
+        const [persona] = useState(initialPersona);
+        const [chatLog, setChatLog] = useState([]); // [{type:'assistant'|'user'|'status'|'fit'|'jobs'|'actions', ...}]
         const [input, setInput] = useState('');
-        const [isStreaming, setIsStreaming] = useState(false);
-        const [conversationId, setConversationId] = useState(null);
-        const [activePersona, setActivePersona] = useState(initialPersona);
-        const [switchCount, setSwitchCount] = useState(0);
-        const MAX_SWITCHES = 2;
-        const [stage, setStage] = useState('diagnostic');
+        const [step, setStep] = useState(0); // 0=intro, 1-6=discovery Qs, 7=routing, 8+=post-artifact
+        const [answers, setAnswers] = useState({});
         const [resumeText, setResumeText] = useState('');
         const [jdText, setJdText] = useState('');
-        const [workspaceId, setWorkspaceId] = useState(null);
         const [fitData, setFitData] = useState(null);
-        const [analysisStatus, setAnalysisStatus] = useState('');
-        const [uploadingFile, setUploadingFile] = useState(false);
-        const [showPasteResume, setShowPasteResume] = useState(false);
+        const [jobs, setJobs] = useState(null);
+        const [busy, setBusy] = useState(false);
+        const [statusText, setStatusText] = useState('');
+        const [showUpload, setShowUpload] = useState(false);
+        const [showJdInput, setShowJdInput] = useState(false);
+        const [showPaste, setShowPaste] = useState(false);
+        const [postActions, setPostActions] = useState(null); // [{label, action}]
         const bottomRef = useRef(null);
         const inputRef = useRef(null);
-        const fileInputRef = useRef(null);
+        const fileRef = useRef(null);
+        const v = VOICE[persona];
 
-        const getSysPrompt = () => activePersona === 'joshua' ? JOSHUA_SYSTEM : ADI_SYSTEM;
-        useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isStreaming, analysisStatus]);
-        useEffect(() => { if (stage !== 'analyzing') inputRef.current?.focus(); }, [stage]);
+        useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[chatLog,busy,statusText]);
+        useEffect(()=>{inputRef.current?.focus();},[step,showUpload,showJdInput]);
 
-        useEffect(() => {
-          async function init() {
-            const { data } = await supabase.from('conversations').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1);
-            if (data && data.length > 0 && data[0].messages.length > 0) {
-              setConversationId(data[0].id); setMessages(data[0].messages); setStage(data[0].stage || 'diagnostic');
-              const ps = data[0].messages.filter(m => m.role === 'assistant').map(m => m.persona);
-              let sw = 0; for (let i = 1; i < ps.length; i++) { if (ps[i] && ps[i-1] && ps[i] !== ps[i-1]) sw++; } setSwitchCount(sw);
-            } else {
-              setIsStreaming(true);
-              try {
-                const { text, cost } = await callLLM({ system: getSysPrompt(), messages: [{ role: 'user', content: 'Start the conversation. Introduce yourself briefly and ask your first question.' }], temperature: 0.5, max_tokens: 200, model: 'haiku' });
-                sessionCost += (cost.total || 0);
-                const msg = { role: 'assistant', content: text, timestamp: new Date().toISOString(), persona: activePersona };
-                setMessages([msg]);
-                const { data: conv } = await supabase.from('conversations').insert({ user_id: user.id, persona: activePersona, messages: [msg], stage: 'diagnostic' }).select().single();
-                if (conv) setConversationId(conv.id);
-              } catch (err) {
-                const fb = activePersona === 'joshua' ? "Hey! I'm Joshua — ex-Flipkart/Meesho hiring panels. What's bringing you here today?" : "Hey! Main Adi hoon — BITS, Razorpay. Chal bata — actively dhundh rahe ho ya exploring?";
-                setMessages([{ role: 'assistant', content: fb, timestamp: new Date().toISOString(), persona: activePersona }]);
-              }
-              setIsStreaming(false);
-            }
+        const addMsg = (type, content, extra={}) => setChatLog(prev=>[...prev,{type,content,...extra}]);
+
+        // ─── Boot: persona intro + Q1 ───
+        useEffect(()=>{
+          addMsg('assistant', v.intro);
+          setTimeout(()=>{
+            addMsg('assistant', DISCOVERY[0][persona]);
+            setStep(1);
+          }, 600);
+        },[]);
+
+        // ─── Handle discovery answer ───
+        const handleDiscoveryAnswer = (text) => {
+          const qIdx = step - 1; // 0-indexed into DISCOVERY
+          const q = DISCOVERY[qIdx];
+          addMsg('user', text);
+          setAnswers(prev => ({...prev, [q.key]: text}));
+
+          // Random short ack
+          const ack = v.ack_short[Math.floor(Math.random() * v.ack_short.length)];
+
+          if (step < 6) {
+            // More questions to ask
+            setTimeout(()=>{
+              addMsg('assistant', ack + ' ' + DISCOVERY[step][persona]);
+              setStep(step + 1);
+            }, 400);
+          } else {
+            // All 6 done — route
+            setTimeout(()=>routeUser({...answers, [q.key]: text}), 400);
           }
-          init();
-        }, []);
-
-        const togglePersona = () => {
-          if (switchCount >= MAX_SWITCHES) return;
-          const next = activePersona === 'joshua' ? 'adi' : 'joshua';
-          const sw = { role: 'system_switch', content: `Switched to ${next === 'joshua' ? 'Joshua (English)' : 'Adi (Hinglish)'}`, timestamp: new Date().toISOString(), persona: next };
-          const nm = [...messages, sw]; setMessages(nm); setActivePersona(next); setSwitchCount(p => p + 1);
-          if (conversationId) supabase.from('conversations').update({ messages: nm, persona: next }).eq('id', conversationId);
         };
 
-        function isJobSearchIntent(t) { return /find.*role|find.*job|search.*role|search.*job|role.*for me|role.*dhundh|job.*dhundh|suggest.*role|koi.*acha.*role|koi.*job|good.*role|roles.*mere/.test(t.toLowerCase()); }
+        // ─── Route after discovery ───
+        const routeUser = (allAnswers) => {
+          setStep(7);
+          const hasResumeSignal = !/scratch|nahi|no|none|nope/.test((allAnswers.resumeStatus||'').toLowerCase());
+          const hasDirection = !/forming|soch|nahi|confused|figure|pata nahi/.test((allAnswers.direction||'').toLowerCase());
 
-        async function handleJobSearch(userText) {
-          const ctx = messages.slice(-8).map(m => m.content).join(' ');
-          let queries;
+          // Build summary
+          const summaryParts = [];
+          if (allAnswers.education) summaryParts.push(allAnswers.education);
+          if (allAnswers.field) summaryParts.push(allAnswers.field);
+          const summary = v.summary_prefix + ' ' + summaryParts.join(', ') + '.';
+          addMsg('assistant', summary);
+
+          if (hasResumeSignal) {
+            // Has resume → ask for upload
+            setTimeout(()=>{
+              addMsg('assistant', v.resume_ask);
+              setShowUpload(true);
+            }, 500);
+          } else if (hasDirection) {
+            // No resume but clear direction → role recommendations first
+            setTimeout(()=>{
+              addMsg('assistant', v.no_jd_roles);
+              runJobSearch(allAnswers);
+            }, 500);
+          } else {
+            // No resume, no direction → role recommendations to help find direction
+            setTimeout(()=>{
+              addMsg('assistant', v.no_jd_roles);
+              runJobSearch(allAnswers);
+            }, 500);
+          }
+        };
+
+        // ─── Job search via Serper ───
+        const runJobSearch = async (allAnswers) => {
+          setBusy(true); setStatusText('Searching for matching roles...');
           try {
-            const { text: qJ } = await callLLM({ system: 'Extract job search params. Return ONLY JSON: {"role":"","location":"","keywords":[]}', messages: [{ role: 'user', content: `Context:\n${ctx}\nRequest: "${userText}"` }], temperature: 0.1, max_tokens: 100, model: 'haiku' });
-            const p = JSON.parse(qJ.replace(/```json?\s*/g, '').replace(/```/g, '').trim());
-            queries = [`${p.role} jobs ${p.location || 'India'} site:linkedin.com/jobs`, `${p.role} hiring ${p.location || 'India'} site:naukri.com OR site:wellfound.com`, `${(p.keywords || [])[0] || p.role} positions India`].filter(q => q.length > 10);
-          } catch { queries = [`${userText.replace(/find|search|me|for|the|koi|role|job|bata/gi, '').trim()} jobs India site:linkedin.com/jobs`]; }
-          const results = await callSearch(queries);
-          if (!results) return null;
-          let jobs = []; Object.values(results).forEach(items => (items || []).forEach(r => { if (r.title && r.url && !jobs.find(j => j.url === r.url)) jobs.push({ title: r.title, url: r.url, snippet: (r.snippet || '').slice(0, 200) }); }));
-          return jobs.slice(0, 5);
-        }
+            const field = allAnswers.field || 'technology';
+            const queries = [
+              `${field} jobs India 2026 site:linkedin.com/jobs`,
+              `${field} hiring India site:naukri.com OR site:wellfound.com`,
+              `${field} entry level OR mid level India openings`
+            ];
+            const results = await callSearch(queries);
+            let jobList = [];
+            if (results) {
+              Object.values(results).forEach(items => (items||[]).forEach(r => {
+                if (r.title && r.url && !jobList.find(j => j.url === r.url)) jobList.push({title:r.title, url:r.url, snippet:(r.snippet||'').slice(0,180)});
+              }));
+            }
+            jobList = jobList.slice(0, 5);
+            setStatusText('');
+            if (jobList.length > 0) {
+              setJobs(jobList);
+              addMsg('jobs', null, {jobs: jobList});
+              setPostActions([
+                {label: 'Upload resume for one of these', action: 'upload_resume'},
+                {label: 'Search for different roles', action: 'search_again'},
+              ]);
+            } else {
+              addMsg('assistant', persona === 'joshua' ? "Didn't find strong matches with that search. Let me try differently — upload your resume and a specific JD, and I'll score your fit directly." : "Search se matches nahi aaye. Resume aur JD do, direct fit score nikaalte hain.");
+              setShowUpload(true);
+            }
+          } catch(err) {
+            setStatusText('');
+            addMsg('assistant', 'Search failed. Upload your resume and JD instead.');
+            setShowUpload(true);
+          }
+          setBusy(false);
+        };
 
-        function trimForAPI(msgs) { return msgs.filter(m => m.role === 'user' || m.role === 'assistant').slice(-6).map(m => ({ role: m.role, content: m.content })); }
-
+        // ─── File upload ───
         const handleFile = async (file) => {
-          if (!file) return; setUploadingFile(true);
+          if(!file) return;
+          setBusy(true); setShowUpload(false);
+          addMsg('status', `Parsing ${file.name}...`);
           try {
-            const text = await parseResumeFile(file); setResumeText(text);
-            const um = { role: 'user', content: `Uploaded: ${file.name}`, timestamp: new Date().toISOString() };
-            const sm = { role: 'status', content: `Resume parsed — ${text.split(/\s+/).length} words` };
-            const nm = [...messages, um, sm]; setMessages(nm);
-            await supabase.from('resumes').insert({ user_id: user.id, raw_text: text, is_master: true, version: 1 });
-            setIsStreaming(true);
-            const { text: reply, cost } = await callLLM({ system: getSysPrompt() + '\n\nUser uploaded their resume. Acknowledge briefly and ask them to paste the job description.', messages: [{ role: 'user', content: 'I uploaded my resume.' }], temperature: 0.4, max_tokens: 150, model: 'haiku' });
-            sessionCost += (cost.total || 0);
-            const am = { role: 'assistant', content: reply, timestamp: new Date().toISOString(), persona: activePersona };
-            const final = [...nm, am]; setMessages(final); setStage('intake');
-            if (conversationId) await supabase.from('conversations').update({ messages: final, stage: 'intake' }).eq('id', conversationId);
-            setIsStreaming(false);
-          } catch (err) {
-            setMessages(prev => [...prev, { role: 'assistant', content: `Could not read file — ${err.message}. Paste text instead.`, timestamp: new Date().toISOString(), persona: activePersona }]);
-            setIsStreaming(false);
+            const text = await parseResumeFile(file);
+            setResumeText(text);
+            addMsg('status', `Resume parsed — ${text.split(/\s+/).length} words`);
+            await supabase.from('resumes').insert({user_id:user.id, raw_text:text, is_master:true, version:1});
+            setTimeout(()=>{
+              addMsg('assistant', v.jd_ask);
+              setShowJdInput(true);
+            }, 400);
+          } catch(err) {
+            addMsg('assistant', `Could not read — ${err.message}. Try pasting text.`);
+            setShowPaste(true);
           }
-          setUploadingFile(false);
+          setBusy(false);
         };
 
+        // ─── JD submit → analysis pipeline ───
         const handleJdSubmit = async () => {
-          if (!jdText.trim()) return;
-          const jd = jdText.trim(); setStage('analyzing'); setJdText('');
-          const um = { role: 'user', content: jd.length > 200 ? jd.slice(0, 200) + '...' : jd, timestamp: new Date().toISOString() };
-          let nm = [...messages, um]; setMessages(nm);
+          if(!jdText.trim()) return;
+          const jd = jdText.trim(); setShowJdInput(false); setJdText('');
+          addMsg('user', jd.length > 150 ? jd.slice(0,150) + '...' : jd);
+          addMsg('assistant', v.analyzing);
+          setBusy(true);
+
           try {
-            setAnalysisStatus('Extracting role details...');
-            const { text: eJ } = await callLLM({ system: 'Extract company and role. Return ONLY JSON: {"company":"","role":""}', messages: [{ role: 'user', content: jd.slice(0, 2000) }], temperature: 0.1, max_tokens: 80, model: 'haiku' });
-            let ext; try { ext = extractJsonObject(eJ); } catch { ext = { company: 'Target Company', role: 'Target Role' }; }
-            const { data: ws } = await supabase.from('workspaces').insert({ user_id: user.id, role_title: ext.role, company: ext.company, jd_raw: jd, status: 'analyzing' }).select().single();
-            if (ws) { setWorkspaceId(ws.id); if (conversationId) await supabase.from('conversations').update({ workspace_id: ws.id }).eq('id', conversationId); }
-            nm = [...nm, { role: 'status', content: `${ext.role} at ${ext.company}` }]; setMessages(nm);
+            // 1. Extract company/role
+            setStatusText('Identifying role...');
+            const {text:eJ} = await callLLM({system:'Extract company and role. ONLY JSON: {"company":"","role":""}',messages:[{role:'user',content:jd.slice(0,2000)}],temperature:0.1,max_tokens:80,model:'haiku'});
+            let ext; try{ext=extractJsonObject(eJ);}catch{ext={company:'Company',role:'Role'};}
+            addMsg('status', `${ext.role} at ${ext.company}`);
 
-            setAnalysisStatus('Researching ' + ext.company + '...');
-            const sr = await callSearch([`${ext.company} engineering culture tech stack`, `${ext.company} ${ext.role} interview`, `${ext.company} glassdoor reviews`]);
-            const sCtx = formatSearchContext(sr);
-            const cRaw = await callGroq(`Analyze ${ext.company} for ${ext.role}.\n${sCtx}\n${sr ? 'Use search as PRIMARY.' : 'Use training knowledge.'}\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","commonChallenges":[],"redFlags":[],"emphasize":[],"sourcedFrom":"${sr ? 'web' : 'training'}"}`, { model: 'openai/gpt-oss-120b', max_tokens: 2500 });
-            const companyData = validateCompanyData(extractJsonObject(cRaw));
+            // 2. Workspace
+            const{data:ws}=await supabase.from('workspaces').insert({user_id:user.id,role_title:ext.role,company:ext.company,jd_raw:jd,status:'analyzing'}).select().single();
 
-            setAnalysisStatus('Parsing JD...');
-            const jRaw = await callGroq(`Parse this JD.\n\nJD:\n${jd}\n\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"seniorityIndicators":[],"winningPhrases":[]}`, { model: 'llama-3.1-8b-instant', max_tokens: 2500, temperature: 0.1 });
-            const jdData = validateJDData(extractJsonObject(jRaw));
-            if (ws) await supabase.from('workspaces').update({ jd_parsed: jdData, company_data: companyData }).eq('id', ws.id);
+            // 3. Company research (Groq — free)
+            setStatusText('Researching ' + ext.company + '...');
+            const sr=await callSearch([`${ext.company} engineering culture`,`${ext.company} ${ext.role} interview`,`${ext.company} glassdoor`]);
+            const sCtx=formatSearchContext(sr);
+            const cRaw=await callGroq(`Analyze ${ext.company} for ${ext.role}.\n${sCtx}\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","redFlags":[],"emphasize":[]}`,{model:'openai/gpt-oss-120b',max_tokens:2500});
+            const companyData=validateCompanyData(extractJsonObject(cRaw));
 
-            setAnalysisStatus('Scoring fit...');
-            const sP = `Score resume vs JD.\n\nRESUME:\n${resumeText.slice(0, 3000)}\n\nCOMPANY: ${JSON.stringify(companyData)}\nJD: ${JSON.stringify(jdData)}\nTARGET: ${ext.role} at ${ext.company}\n\nRubric(100): MustHave(30), Responsibilities(12), Tonality(8), Metrics(15), Seniority(10), ATS(10), Tooling(10), Differentiators(5).\n\nReturn JSON: {"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","impact":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}`;
-            const scRaw = await callGroq(sP, { model: 'openai/gpt-oss-120b', max_tokens: 3000, temperature: 0.1 });
-            const sd = extractJsonObject(scRaw);
-            const dual = computeDualScores(sd.scoreBreakdown);
-            const fit = { score: sd.matchScore, atsScore: dual.atsScore, hmScore: dual.hmScore, clearance: dual.clearance, gaps: sd.topGaps || [], strengths: sd.topStrengths || [], categories: sd.scoreBreakdown, potential: sd.potentialScoreAfter, companyData, jdData };
+            // 4. JD parsing (Groq — free)
+            setStatusText('Parsing JD...');
+            const jRaw=await callGroq(`Parse JD.\n\nJD:\n${jd}\n\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"winningPhrases":[]}`,{model:'llama-3.1-8b-instant',max_tokens:2500,temperature:0.1});
+            const jdData=validateJDData(extractJsonObject(jRaw));
+            if(ws)await supabase.from('workspaces').update({jd_parsed:jdData,company_data:companyData}).eq('id',ws.id);
+
+            // 5. Scoring (Groq — free)
+            setStatusText('Scoring fit...');
+            const sP=`Score resume vs JD.\n\nRESUME:\n${resumeText.slice(0,3000)}\n\nCOMPANY:${JSON.stringify(companyData)}\nJD:${JSON.stringify(jdData)}\nTARGET:${ext.role} at ${ext.company}\n\nRubric(100):MustHave(30),Responsibilities(12),Tonality(8),Metrics(15),Seniority(10),ATS(10),Tooling(10),Differentiators(5).\n\nReturn JSON:{"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}`;
+            const scRaw=await callGroq(sP,{model:'openai/gpt-oss-120b',max_tokens:3000,temperature:0.1});
+            const sd=extractJsonObject(scRaw);
+            const dual=computeDualScores(sd.scoreBreakdown);
+            const fit={score:sd.matchScore,atsScore:dual.atsScore,hmScore:dual.hmScore,clearance:dual.clearance,gaps:sd.topGaps||[],strengths:sd.topStrengths||[],categories:sd.scoreBreakdown,potential:sd.potentialScoreAfter,companyData,jdData};
             setFitData(fit);
-            if (ws) await supabase.from('fit_snapshots').insert({ workspace_id: ws.id, overall_score: fit.score, ats_score: fit.atsScore, hm_score: fit.hmScore, category_scores: fit.categories, gaps: fit.gaps.map(g => typeof g === 'string' ? { item: g } : g), strengths: (Array.isArray(fit.strengths) ? fit.strengths : []).map(s => typeof s === 'string' ? { item: s } : s), potential_score: fit.potential });
 
-            setAnalysisStatus('');
-            const { text: verdict, cost } = await callLLM({ system: getSysPrompt() + `\n\nDeliver fit verdict. Score: ${fit.score}/100. ATS: ${fit.atsScore}. HM: ${fit.hmScore}. Clearance: ${fit.clearance}. Gaps: ${JSON.stringify(fit.gaps.slice(0, 3))}. Strengths: ${JSON.stringify(fit.strengths.slice(0, 2))}. Potential: ${fit.potential}. Lead with verdict, name gaps, name strengths. End: "Want me to rewrite your resume for this role?"`, messages: [{ role: 'user', content: `How do I stack up for ${ext.role} at ${ext.company}?` }], temperature: 0.4, max_tokens: 300, model: 'haiku' });
-            sessionCost += (cost.total || 0);
-            const bubbles = splitIntoBubbles(verdict);
-            let final = nm;
-            for (let i = 0; i < bubbles.length; i++) {
-              if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
-              final = [...final, { role: 'assistant', content: bubbles[i], timestamp: new Date().toISOString(), persona: activePersona }];
-              setMessages([...final]);
-            }
-            final = [...final, { role: 'fit_snapshot', fitData: fit, timestamp: new Date().toISOString() }];
-            setMessages([...final]); setStage('results');
-            if (conversationId) await supabase.from('conversations').update({ messages: [...nm, { role: 'assistant', content: bubbles.join(' '), timestamp: new Date().toISOString(), persona: activePersona }], stage: 'results' }).eq('id', conversationId);
-            console.log(`[pipeline] Groq: ~$0.00 | Haiku: $${(cost.total || 0).toFixed(4)} | Session: $${sessionCost.toFixed(4)}`);
-          } catch (err) {
-            console.error('Analysis error:', err); setAnalysisStatus('');
-            setMessages(prev => [...prev, { role: 'assistant', content: `Analysis error: ${err.message}. Paste JD again.`, timestamp: new Date().toISOString(), persona: activePersona }]);
-            setStage('intake');
+            // Store
+            if(ws)await supabase.from('fit_snapshots').insert({workspace_id:ws.id,overall_score:fit.score,ats_score:fit.atsScore,hm_score:fit.hmScore,category_scores:fit.categories,potential_score:fit.potential});
+
+            // 6. Verdict (Haiku — one call, ~$0.002)
+            setStatusText('');
+            const verdictPrompt = persona === 'joshua'
+              ? `You scored ${fit.score}/100. ${fit.clearance}. Top gap: ${fit.gaps[0]?.item||'none'}. Top strength: ${fit.strengths[0]||'none'}. Deliver the verdict in 2-3 sentences. Be direct.`
+              : `Score aaya ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences mein verdict do.`;
+            const{text:verdict,cost}=await callLLM({system:`You are ${persona==='joshua'?'Joshua, direct career strategist':'Adi, Hinglish career dost'}. No markdown. Plain text only.`,messages:[{role:'user',content:verdictPrompt}],temperature:0.4,max_tokens:150,model:'haiku'});
+            sessionCost+=(cost.total||0);
+
+            addMsg('assistant', verdict);
+            addMsg('fit', null, {fitData:fit});
+            setPostActions([
+              {label:'Rewrite my resume for this role', action:'rewrite'},
+              {label:'Find similar roles', action:'similar_roles'},
+              {label:'Analyze a different role', action:'new_analysis'},
+            ]);
+            setStep(8);
+            console.log(`[pipeline] Groq:$0.00 Haiku:$${(cost.total||0).toFixed(4)} Session:$${sessionCost.toFixed(4)}`);
+
+          } catch(err) {
+            setStatusText('');
+            addMsg('assistant', `Analysis error: ${err.message}. Paste the JD again.`);
+            setShowJdInput(true);
+          }
+          setBusy(false);
+        };
+
+        // ─── Post-artifact actions ───
+        const handleAction = async (action) => {
+          setPostActions(null);
+          if (action === 'upload_resume') {
+            setShowUpload(true);
+          } else if (action === 'search_again') {
+            addMsg('assistant', persona === 'joshua' ? "What type of role are you looking for?" : "Kis type ka role chahiye?");
+            setStep(9); // free text for search
+          } else if (action === 'rewrite') {
+            addMsg('assistant', persona === 'joshua' ? "Resume rewrite is coming in the next update. For now, use the gaps from the fit snapshot to guide your edits." : "Resume rewrite next update mein aayega. Abhi ke liye fit snapshot ke gaps follow karo.");
+            setPostActions([{label:'Find similar roles',action:'similar_roles'},{label:'Analyze a different role',action:'new_analysis'}]);
+          } else if (action === 'similar_roles') {
+            await runJobSearch(answers);
+          } else if (action === 'new_analysis') {
+            setResumeText(''); setJdText(''); setFitData(null); setJobs(null);
+            addMsg('assistant', v.resume_ask);
+            setShowUpload(true);
           }
         };
 
-        const sendMessage = async () => {
-          if (!input.trim() || isStreaming) return;
-          const ut = input.trim();
-          if (stage === 'intake' && resumeText && !workspaceId) { setJdText(ut); setInput(''); setTimeout(() => handleJdSubmit(), 50); return; }
-          const um = { role: 'user', content: ut, timestamp: new Date().toISOString() };
-          const nm = [...messages, um]; setMessages(nm); setInput(''); setIsStreaming(true);
-          try {
-            let rt; let ci = {};
-            if (isJobSearchIntent(ut)) {
-              const jobs = await handleJobSearch(ut);
-              if (jobs && jobs.length > 0) {
-                const jC = jobs.map((j, i) => `${i+1}. ${j.title}\n   ${j.snippet}\n   ${j.url}`).join('\n\n');
-                const { text, cost } = await callLLM({ system: getSysPrompt() + '\n\nPresent these real job listings. Include URLs. Do NOT say you cannot search.', messages: [...trimForAPI(nm), { role: 'user', content: `RESULTS:\n${jC}\n\nPresent these.` }], temperature: 0.4, max_tokens: 400, model: 'haiku' });
-                rt = text; ci = cost;
-              } else { rt = activePersona === 'joshua' ? "Search didn't return strong results. Be more specific — role title, company type, city?" : "Search se results nahi aaye. Thoda specific bolo — role, company type, city?"; }
-            } else {
-              const uc = nm.filter(m => m.role === 'user').length;
-              let extra = '';
-              if (stage === 'diagnostic' && uc >= 6) { setStage('intake'); extra = '\n\nDiagnostic done. Tell user to drop their resume.'; }
-              const { text, cost } = await callLLM({ system: getSysPrompt() + extra, messages: trimForAPI(nm), temperature: 0.4, max_tokens: 250, model: 'haiku' });
-              rt = text; ci = cost;
-            }
-            sessionCost += (ci.total || 0);
-            const bubs = splitIntoBubbles(rt);
-            let cur = nm;
-            for (let i = 0; i < bubs.length; i++) {
-              if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
-              cur = [...cur, { role: 'assistant', content: bubs[i], timestamp: new Date().toISOString(), persona: activePersona }];
-              setMessages([...cur]);
-            }
-            if (conversationId) await supabase.from('conversations').update({ messages: [...nm, { role: 'assistant', content: bubs.join(' '), timestamp: new Date().toISOString(), persona: activePersona }], stage }).eq('id', conversationId);
-            console.log(`[${activePersona}|haiku] $${sessionCost.toFixed(4)}`);
-          } catch (err) {
-            setMessages(prev => [...prev, { role: 'assistant', persona: activePersona, content: 'Connection issue — resend.', timestamp: new Date().toISOString() }]);
+        // ─── Handle text input (discovery or free search) ───
+        const handleSend = () => {
+          if (!input.trim()) return;
+          const text = input.trim(); setInput('');
+
+          if (step >= 1 && step <= 6) {
+            handleDiscoveryAnswer(text);
+          } else if (step === 9) {
+            // Free text for job search
+            addMsg('user', text);
+            runJobSearch({...answers, field: text});
+          } else if (showJdInput) {
+            setJdText(text);
+            handleJdSubmit();
           }
-          setIsStreaming(false);
         };
 
-        const [theme, setTheme] = useState(() => { try { return localStorage.getItem('rc_theme') || 'dark'; } catch { return 'dark'; } });
-        const toggleTheme = () => { const n = theme === 'dark' ? 'light' : 'dark'; setTheme(n); document.documentElement.setAttribute('data-theme', n); try { localStorage.setItem('rc_theme', n); } catch {} };
-        const showFileUpload = (stage === 'intake' || stage === 'diagnostic') && !resumeText && !showPasteResume;
-        const showJdInput = stage === 'intake' && resumeText && !workspaceId;
+        // ─── Theme ───
+        const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
+        const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
 
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-            <nav style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <button onClick={onBack} style={{ background: 'none', border: 'none', padding: 4, display: 'flex' }}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-                <PersonaAvatar persona={activePersona} size={30} />
-                <div><div style={{ fontSize: 14, fontWeight: 600 }}>{activePersona === 'joshua' ? 'Joshua' : 'Adi'}</div><div style={{ fontSize: 10, color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: 4 }}><div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-success)' }} />online</div></div>
+        const showTextInput = (step >= 1 && step <= 6) || step === 9;
+
+        return(
+          <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
+            {/* NAV */}
+            <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+              <div style={{display:'flex',alignItems:'center',gap:12}}>
+                <button onClick={onBack} style={{background:'none',border:'none',padding:4,display:'flex',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+                <PersonaAvatar persona={persona} size={30}/>
+                <div><div style={{fontSize:14,fontWeight:600}}>{persona==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:10,color:'var(--color-success)',display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:'var(--color-success)'}}/>online</div></div>
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {fitData && <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{fitData.score}/100</span>}
-                <button onClick={togglePersona} disabled={switchCount >= MAX_SWITCHES} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 'var(--radius-full)', border: '1px solid var(--color-border)', background: 'none', fontSize: 10, opacity: switchCount >= MAX_SWITCHES ? 0.4 : 1 }}>
-                  <PersonaAvatar persona={activePersona === 'joshua' ? 'adi' : 'joshua'} size={14} />{activePersona === 'joshua' ? 'Adi' : 'Josh'}
-                </button>
-                <Logo size={14} />
-                <button onClick={toggleTheme} style={{ width: 36, height: 22, borderRadius: 11, background: theme === 'dark' ? 'var(--color-primary)' : 'var(--color-border)', border: 'none', position: 'relative' }}>
-                  <div style={{ width: 16, height: 16, borderRadius: '50%', background: theme === 'dark' ? 'var(--color-bg)' : '#fff', position: 'absolute', top: 3, left: theme === 'dark' ? 17 : 3, transition: 'left .3s cubic-bezier(.34,1.56,.64,1)', boxShadow: '0 1px 2px rgba(0,0,0,.1)' }} />
-                </button>
+              <div style={{display:'flex',gap:8,alignItems:'center'}}>
+                {fitData&&<span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--color-primary)'}}>{fitData.score}/100</span>}
+                <Logo size={14}/>
+                <button onClick={toggleTheme} style={{width:36,height:22,borderRadius:11,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:16,height:16,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?17:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}/></button>
               </div>
             </nav>
 
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ maxWidth: 'var(--max-conversation)', width: '100%', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {messages.map((msg, i) => {
-                  if (msg.role === 'system_switch') return (<div key={i} className="msg-in" style={{ display: 'flex', justifyContent: 'center', padding: '6px 16px' }}><div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500, background: 'var(--color-elevated)', border: '1px solid var(--color-border-light)', borderRadius: 'var(--radius-full)', padding: '3px 12px' }}><PersonaAvatar persona={msg.persona} size={14} />{msg.content}</div></div>);
-                  if (msg.role === 'status') return <StatusBubble key={i} text={msg.content} />;
-                  if (msg.role === 'fit_snapshot') return <FitSnapshotCard key={i} data={msg.fitData || fitData} />;
-                  return <MessageBubble key={i} role={msg.role} persona={activePersona} msgPersona={msg.persona} content={msg.content} />;
+            {/* MESSAGES */}
+            <div style={{flex:1,overflowY:'auto',padding:'16px 0',display:'flex',flexDirection:'column',gap:14}}>
+              <div style={{maxWidth:'var(--max-conversation)',width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
+                {chatLog.map((msg,i) => {
+                  if(msg.type==='assistant') return <AssistantMsg key={i} persona={persona}>{msg.content}</AssistantMsg>;
+                  if(msg.type==='user') return <UserMsg key={i}>{msg.content}</UserMsg>;
+                  if(msg.type==='status') return <StatusMsg key={i} text={msg.content}/>;
+                  if(msg.type==='fit') return <FitCard key={i} data={msg.fitData}/>;
+                  if(msg.type==='jobs') return <JobCard key={i} jobs={msg.jobs}/>;
+                  return null;
                 })}
-                {analysisStatus && <StatusBubble text={analysisStatus} loading />}
-                {isStreaming && <TypingIndicator persona={activePersona} />}
-                <div ref={bottomRef} />
+                {statusText && <StatusMsg text={statusText} loading/>}
+                {busy && !statusText && <TypingDots persona={persona}/>}
+
+                {/* Post-artifact action buttons */}
+                {postActions && (
+                  <div className="msg-in" style={{padding:'0 16px 0 52px',display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {postActions.map((a,i) => <ActionButton key={i} label={a.label} onClick={()=>handleAction(a.action)} primary={i===0}/>)}
+                  </div>
+                )}
+                <div ref={bottomRef}/>
               </div>
             </div>
 
-            {showFileUpload && (
-              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
-                  <div onClick={() => fileInputRef.current?.click()} onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--color-primary)'; }} onDragLeave={e => e.currentTarget.style.borderColor = 'var(--color-border)'} onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--color-border)'; handleFile(e.dataTransfer.files[0]); }} style={{ border: '2px dashed var(--color-border)', borderRadius: 'var(--radius-md)', padding: 16, textAlign: 'center', cursor: 'pointer' }}>
-                    {uploadingFile ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}><div style={{ width: 14, height: 14, border: '2px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />Parsing...</div> : <><div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>Drop your resume here</div><div style={{ fontSize: 11, color: 'var(--color-text-muted)' }}>PDF, DOCX, or TXT</div></>}
+            {/* FILE UPLOAD */}
+            {showUpload && (
+              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+                  <div onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-primary)';}} onDragLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-border)';handleFile(e.dataTransfer.files[0]);}} style={{border:'2px dashed var(--color-border)',borderRadius:'var(--radius-md)',padding:16,textAlign:'center',cursor:'pointer'}}>
+                    <div style={{fontSize:13,fontWeight:500,marginBottom:3}}>Drop your resume here</div><div style={{fontSize:11,color:'var(--color-text-muted)'}}>PDF, DOCX, or TXT</div>
                   </div>
-                  <input ref={fileInputRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
-                  <div style={{ textAlign: 'center', marginTop: 6 }}><button onClick={() => setShowPasteResume(true)} style={{ fontSize: 11, color: 'var(--color-text-muted)', background: 'none', border: 'none', textDecoration: 'underline' }}>or paste text</button></div>
+                  <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])}/>
+                  <div style={{textAlign:'center',marginTop:6}}><button onClick={()=>{setShowUpload(false);setShowPaste(true);}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>or paste text</button></div>
                 </div>
               </div>
             )}
 
-            {showPasteResume && !resumeText && (
-              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
-                  <textarea placeholder="Paste resume text..." rows={5} style={{ width: '100%', marginBottom: 6 }} id="rp" />
-                  <button onClick={() => { const t = document.getElementById('rp').value.trim(); if (t.length > 20) { setResumeText(t); setShowPasteResume(false); setStage('intake'); supabase.from('resumes').insert({ user_id: user.id, raw_text: t, is_master: true }); setMessages(prev => [...prev, { role: 'status', content: 'Resume — ' + t.split(/\s+/).length + ' words' }]); } }} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--color-primary)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600 }}>Submit</button>
+            {/* PASTE RESUME */}
+            {showPaste && (
+              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+                  <textarea placeholder="Paste resume text..." rows={5} style={{width:'100%',marginBottom:6}} id="rp"/>
+                  <ActionButton label="Submit resume" primary onClick={()=>{const t=document.getElementById('rp').value.trim();if(t.length>20){setResumeText(t);setShowPaste(false);supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true});addMsg('status','Resume — '+t.split(/\s+/).length+' words');setTimeout(()=>{addMsg('assistant',v.jd_ask);setShowJdInput(true);},400);}}}/>
                 </div>
               </div>
             )}
 
+            {/* JD INPUT */}
             {showJdInput && (
-              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto' }}>
-                  <textarea placeholder="Paste the job description..." rows={4} value={jdText} onChange={e => setJdText(e.target.value)} style={{ width: '100%', marginBottom: 6 }} />
-                  <button onClick={handleJdSubmit} disabled={!jdText.trim()} style={{ padding: '7px 18px', borderRadius: 'var(--radius-sm)', background: 'var(--color-primary)', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, opacity: jdText.trim() ? 1 : 0.4 }}>Analyze</button>
+              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+                  <textarea placeholder="Paste job description..." rows={4} value={jdText} onChange={e=>setJdText(e.target.value)} style={{width:'100%',marginBottom:6}}/>
+                  <ActionButton label="Analyze" primary onClick={handleJdSubmit}/>
                 </div>
               </div>
             )}
 
-            {stage !== 'analyzing' && !showFileUpload && !showPasteResume && !showJdInput && (
-              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
-                <div style={{ maxWidth: 'var(--max-conversation)', margin: '0 auto', display: 'flex', gap: 8 }}>
-                  <input ref={inputRef} type="text" placeholder={activePersona === 'joshua' ? 'Talk to Joshua...' : 'Adi se baat karo...'} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && sendMessage()} style={{ flex: 1, borderRadius: 'var(--radius-md)', padding: '11px 16px' }} />
-                  <button onClick={sendMessage} disabled={!input.trim() || isStreaming} style={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (!input.trim() || isStreaming) ? 0.4 : 1 }}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            {/* TEXT INPUT (discovery Qs + free search) */}
+            {showTextInput && !showUpload && !showPaste && !showJdInput && (
+              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto',display:'flex',gap:8}}>
+                  <input ref={inputRef} type="text" placeholder={persona==='joshua'?'Your answer...':'Apna jawab likho...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSend()} style={{flex:1,borderRadius:'var(--radius-md)',padding:'11px 16px'}}/>
+                  <button onClick={handleSend} disabled={!input.trim()||busy} style={{width:40,height:40,borderRadius:'var(--radius-md)',background:'var(--color-primary)',border:'none',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||busy)?.4:1,cursor:'pointer'}}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </button>
                 </div>
               </div>
@@ -1071,129 +684,22 @@ Intro (1 line) + Q1 se shuru karo.`;
       }
 
 
-      // ═══════════════════════════════════════════════════════
-      // MAIN APP
-      // ═══════════════════════════════════════════════════════
+      // ═══ APP ═══
+      function App(){
+        const[session,setSession]=useState(null);const[userProfile,setUserProfile]=useState(null);const[loading,setLoading]=useState(true);const[activeChat,setActiveChat]=useState(null);
+        useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)loadProfile(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)loadProfile(s.user);else{setUserProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);
+        const loadProfile=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setUserProfile(data);setLoading(false);};
+        const handleSignOut=async()=>{await supabase.auth.signOut();setSession(null);setUserProfile(null);setActiveChat(null);};
+        const handleLang=async(lang)=>{if(!session)return;const{data}=await supabase.from('users').update({language_pref:lang}).eq('id',session.user.id).select().single();setUserProfile(data);};
 
-      function App() {
-        const [session, setSession] = useState(null);
-        const [userProfile, setUserProfile] = useState(null);
-        const [loading, setLoading] = useState(true);
-        const [activeChat, setActiveChat] = useState(null); // persona name when in chat, null = hub
-
-        useEffect(() => {
-          // Check existing session
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            setSession(session);
-            if (session) loadProfile(session.user);
-            else setLoading(false);
-          });
-
-          // Listen for auth changes
-          const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setSession(session);
-            if (session) loadProfile(session.user);
-            else { setUserProfile(null); setLoading(false); }
-          });
-
-          return () => subscription.unsubscribe();
-        }, []);
-
-        const loadProfile = async (authUser) => {
-          const { data } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-
-          setUserProfile(data);
-          setLoading(false);
-        };
-
-        const handleSignOut = async () => {
-          await supabase.auth.signOut();
-          setSession(null);
-          setUserProfile(null);
-          setActiveChat(null);
-        };
-
-        const handleLanguageSelect = async (lang, persona) => {
-          if (!session) return;
-          const { data } = await supabase
-            .from('users')
-            .update({ language_pref: lang })
-            .eq('id', session.user.id)
-            .select()
-            .single();
-          setUserProfile(data);
-        };
-
-        const handleSwitchPersona = async (newPersona) => {
-          const lang = newPersona === 'adi' ? 'hinglish' : 'en';
-          const { data } = await supabase
-            .from('users')
-            .update({ language_pref: lang })
-            .eq('id', session.user.id)
-            .select()
-            .single();
-          setUserProfile(data);
-          setActiveChat(newPersona);
-        };
-
-        if (loading) {
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: 10 }}>
-              <div style={{ width: 20, height: 20, border: '3px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              <span style={{ color: 'var(--color-text-muted)', fontSize: 14 }}>Loading...</span>
-            </div>
-          );
-        }
-
-        // Not authenticated
-        if (!session) {
-          return <AuthScreen />;
-        }
-
-        // Authenticated but no language preference set
-        if (userProfile && !userProfile.language_pref) {
-          return <LanguageSelect onSelect={handleLanguageSelect} />;
-        }
-
-        // Determine persona from language pref
-        const persona = userProfile?.language_pref === 'hinglish' ? 'adi' : 'joshua';
-
-        // Active chat session
-        if (activeChat) {
-          return (
-            <ConversationPage
-              user={session.user}
-              initialPersona={activeChat}
-              onSignOut={handleSignOut}
-              onBack={() => setActiveChat(null)}
-            />
-          );
-        }
-
-        // Session Hub (home)
-        return (
-          <SessionHub
-            user={session.user}
-            userProfile={userProfile}
-            onStartChat={(p) => setActiveChat(p)}
-            onSignOut={handleSignOut}
-            onSwitchPersona={handleSwitchPersona}
-          />
-        );
+        if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:10}}><div style={{width:20,height:20,border:'3px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{color:'var(--color-text-muted)',fontSize:14}}>Loading...</span></div>);
+        if(!session)return <AuthScreen/>;
+        if(userProfile&&!userProfile.language_pref)return <LanguageSelect onSelect={handleLang}/>;
+        if(activeChat)return <ConversationPage user={session.user} initialPersona={activeChat} onSignOut={handleSignOut} onBack={()=>setActiveChat(null)}/>;
+        return <SessionHub user={session.user} userProfile={userProfile} onStartChat={setActiveChat} onSignOut={handleSignOut}/>;
       }
 
-
-      // ═══════════════════════════════════════════════════════
-      // RENDER
-      // ═══════════════════════════════════════════════════════
-
-      ReactDOM.createRoot(document.getElementById('root')).render(
-        React.createElement(App)
-      );
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
     </script>
 </body>
 </html>
