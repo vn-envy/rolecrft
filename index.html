@@ -145,558 +145,515 @@
     <style>@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}</style>
 
     <script type="text/babel">
-      const {useState,useEffect,useRef,useCallback} = React;
+      const {useState,useEffect,useRef} = React;
 
       // ═══ CONFIG ═══
       const SUPABASE_URL = 'https://syrpitwhpsajthojpbcg.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_39eUMs3_hVddJhQozmtkxw_mBq1OOiS';
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ═══ DISCOVERY QUESTIONS (deterministic — app controls flow) ═══
-      const DISCOVERY = [
-        { id: 'intent', key: 'intent',
-          joshua: "What's bringing you here today — actively hunting, exploring, or somewhere in between?",
-          adi: "Chal bata — actively dhundh rahe ho ya bas exploring?" },
-        { id: 'education', key: 'education',
-          joshua: "Quick background — what's your highest education and how many years of work experience?",
-          adi: "Pehle yeh bata — education kya hai aur kitne saal ka experience?" },
-        { id: 'field', key: 'field',
-          joshua: "What kind of roles have you been in, or what field are you coming from?",
-          adi: "Kis type ke roles mein rahe ho, ya konsa field hai?" },
-        { id: 'direction', key: 'direction',
-          joshua: "When you think about your next role — clear picture or still forming?",
-          adi: "Next role ke baare mein clear picture hai ya soch rahe ho?" },
-        { id: 'challenge', key: 'challenge',
-          joshua: "What's been the hardest part — getting interviews, passing them, or figuring out where to apply?",
-          adi: "Ab tak sabse mushkil kya raha — interviews milna, crack karna, ya kahan apply?" },
-        { id: 'resume_status', key: 'resumeStatus',
-          joshua: "Got a resume you've used recently, or are we building from scratch?",
-          adi: "Resume hai recently wala, ya scratch se banana padega?" },
+      // ═══ 7 CHARACTER STORIES ═══
+      const CHARACTERS = [
+        { id:'ananya', name:'Ananya', city:'Pune', type:'ghost', pack:'fresher',
+          story:"I graduated last year but never really started looking. No resume, no LinkedIn, honestly not sure what I'm even qualified for.",
+          hook:"Starting from zero — need direction before anything else" },
+        { id:'rohan', name:'Rohan', city:'Bengaluru', type:'freshgrad', pack:'fresher',
+          story:"Just finished my degree. I've done a couple of college projects and one internship, but I don't know how to turn that into a real resume.",
+          hook:"Has raw material but doesn't know how to package it" },
+        { id:'karthik', name:'Karthik', city:'Chennai', type:'drifter', pack:'resume',
+          story:"I've been working for 2 years but I'm not excited about my current field. I think I want to switch but I genuinely don't know which direction to go.",
+          hook:"Has experience but unclear on what's next" },
+        { id:'priya', name:'Priya', city:'Mumbai', type:'buried', pack:'resume',
+          story:"My resume is from 2 years ago and it's generic. I know what role I want — I just need the resume to actually land interviews.",
+          hook:"Clear target, outdated resume — needs a rebuild" },
+        { id:'vikram', name:'Vikram', city:'Gurugram', type:'bomber', pack:'interview',
+          story:"I'm getting interviews at good companies but keep dropping out in the middle rounds. My resume is fine — it's the interviews I can't crack.",
+          hook:"Strong on paper, struggling in the room" },
+        { id:'nisha', name:'Nisha', city:'Hyderabad', type:'switcher', pack:'resume',
+          story:"I'm switching from ops to product. I have 4 years of experience but none of it is in the domain I'm targeting. My resume doesn't translate.",
+          hook:"Experienced professional making a career pivot" },
+        { id:'meera', name:'Meera', city:'Delhi', type:'stalled', pack:'resume',
+          story:"I've applied to 50+ roles in the last 3 months and I'm barely hearing back. My resume seems fine to me but clearly something isn't working.",
+          hook:"Active applicant, zero callbacks — the problem might not be the resume" },
       ];
 
-      // ═══ VOICE TEMPLATES (short — LLM wraps these, doesn't improvise) ═══
+      // ═══ CHARACTER-SPECIFIC FOLLOW-UP QUESTIONS (2 per character, app-controlled) ═══
+      const FOLLOW_UPS = {
+        ananya: {
+          joshua: [
+            "What did you study, and was there any part of it you actually enjoyed working on?",
+            "If you had to pick between a structured corporate path and something more startup-ish — gut instinct, which one?"
+          ],
+          adi: [
+            "Kya padha tha, aur usme koi cheez thi jo actually pasand aayi?",
+            "Corporate structured path ya startup wala scene — gut feeling, kya lagta hai?"
+          ]
+        },
+        rohan: {
+          joshua: [
+            "Tell me about that internship — what did you actually build or work on?",
+            "Are you targeting a specific kind of role, or open to seeing what fits your skills?"
+          ],
+          adi: [
+            "Woh internship mein kya kiya tha — actually kya build ya kaam kiya?",
+            "Koi specific role target kar rahe ho ya dekhna chahte ho kya fit hota hai?"
+          ]
+        },
+        karthik: {
+          joshua: [
+            "What's your current role, and what specifically about it isn't working for you?",
+            "When you imagine your ideal workday 2 years from now — what does it look like?"
+          ],
+          adi: [
+            "Abhi kya kar rahe ho, aur exactly kya problem hai current role mein?",
+            "2 saal baad ideal workday kaisa dikhta hai — imagine karo?",
+          ]
+        },
+        priya: {
+          joshua: [
+            "What role are you targeting, and do you have a specific company or JD in mind?",
+            "How many years of experience do you have, and what's been your strongest contribution?"
+          ],
+          adi: [
+            "Kaunsa role target kar rahe ho — koi specific company ya JD hai?",
+            "Kitne saal ka experience hai, aur ab tak sabse strong contribution kya raha?"
+          ]
+        },
+        vikram: {
+          joshua: [
+            "Which round are you typically failing at — phone screens, technicals, or final rounds?",
+            "Can you describe the last interview that went badly — what happened?"
+          ],
+          adi: [
+            "Kaunse round mein usually fail hote ho — phone screen, technical, ya final?",
+            "Last interview jo kharab gaya — kya hua tha exactly?"
+          ]
+        },
+        nisha: {
+          joshua: [
+            "What's your current domain, and what specifically are you switching to?",
+            "Is there anything from your current work that might translate — leadership, process, data?"
+          ],
+          adi: [
+            "Abhi kaunsa domain hai aur kis mein jaana chahte ho?",
+            "Current kaam se kuch translate hota hai kya — leadership, process, data?"
+          ]
+        },
+        meera: {
+          joshua: [
+            "How are you finding and applying to these roles — job boards, referrals, LinkedIn?",
+            "When you look at the JDs you're applying to, do they match your experience level or are you stretching?"
+          ],
+          adi: [
+            "Roles kaise dhundh rahe ho — job boards, referrals, LinkedIn?",
+            "Jo JDs mein apply kar rahe ho, woh tumhare experience level ke hain ya stretch kar rahe ho?"
+          ]
+        },
+      };
+
+      // ═══ VOICE TEMPLATES ═══
       const VOICE = {
         joshua: {
-          intro: "Hey! I'm Joshua — I've sat on hiring panels at Flipkart, Meesho, and Zepto. Before I can help, I need to understand where you're at.",
-          ack_short: ["Got it.", "Noted.", "Makes sense.", "Clear.", "Understood."],
-          summary_prefix: "Here's where you stand:",
-          resume_ask: "Drop your resume here — PDF, DOCX, or paste the text.",
-          jd_ask: "Now paste the job description for the role you're targeting.",
-          analyzing: "Give me a moment — I'm scoring your fit.",
-          no_jd_roles: "Based on what you've told me, let me find some roles that fit your profile.",
+          confirm: (char) => `That sounds like where you are. ${char.type === 'bomber' ? "The good news — your resume is probably not the problem. Let's figure out what is." : char.type === 'ghost' || char.type === 'freshgrad' ? "No pressure — let's figure out what you're working with first." : "I've seen this exact situation many times. A couple of quick questions and I'll know exactly how to help."}`,
+          transition_resume: "Good — I've got enough to work with. Drop your resume here and I'll start scoring it.",
+          transition_jd: "Now paste the job description you're targeting. If you don't have one specific JD, describe the role you want.",
+          transition_search: "Let me find some roles that fit what you've described.",
+          transition_fresher: "Let me build something from what you've told me.",
         },
         adi: {
-          intro: "Hey! Main Adi hoon — BITS se nikla, Razorpay mein 3 saal kiya. Chal shuru karte hain.",
-          ack_short: ["Sahi hai.", "Samajh gaya.", "Theek hai.", "Accha.", "Noted."],
-          summary_prefix: "Dekh, tumhara situation yeh hai:",
-          resume_ask: "Resume daal do yahan — PDF, DOCX, ya text paste karo.",
-          jd_ask: "Ab JD paste karo — jo role target kar rahe ho uska.",
-          analyzing: "Ek minute — score nikaal raha hoon.",
-          no_jd_roles: "Jo bataya hai uske basis pe, kuch roles dhundh ta hoon tumhare liye.",
+          confirm: (char) => `Sahi pakde ho. ${char.type === 'bomber' ? "Ek acchi baat — resume mein problem nahi hoga shayad. Chalte hain dekhte hain kya ho raha hai." : char.type === 'ghost' || char.type === 'freshgrad' ? "Koi tension nahi — pehle dekhte hain kya hai hamare paas." : "Yeh situation bahut dekhi hai. Do-teen cheezein puchta hoon, phir exactly pata chalega kya karna hai."}`,
+          transition_resume: "Theek hai, enough context mil gaya. Resume daal do, scoring shuru karta hoon.",
+          transition_jd: "Ab JD paste karo — jo role target kar rahe ho uska. Specific JD nahi hai toh role describe kar do.",
+          transition_search: "Chal dekhte hain kya roles milte hain tumhare liye.",
+          transition_fresher: "Jo bataya hai usse kuch build karta hoon.",
         }
       };
 
-      // ═══ API HELPERS ═══
+      // ═══ API + ENGINE (carried forward) ═══
       let sessionCost = 0;
 
       async function callLLM({system,messages,temperature=0.4,max_tokens=200,model='haiku'}) {
         const res = await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages,temperature,max_tokens,model})});
         const data = await res.json(); if(!res.ok) throw new Error(data.error||'API error');
         const tb=(data.content||[]).find(c=>c.type==='text');
-        return {text:tb?tb.text:'',usage:data.usage||{},cost:data.cost||{},model:data.model||model};
+        return {text:tb?tb.text:'',cost:data.cost||{}};
       }
 
       async function callSearch(queries) {
-        try { const res=await fetch("/.netlify/functions/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({queries})}); const data=await res.json(); return data.searchAvailable?data.results:null; } catch(e){return null;}
+        try{const res=await fetch("/.netlify/functions/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({queries})});const data=await res.json();return data.searchAvailable?data.results:null;}catch{return null;}
       }
 
-      function formatSearchContext(sr) {
-        if(!sr)return '';let ctx='\n=== WEB SEARCH ===\n';Object.entries(sr).forEach(([q,items])=>{ctx+=`QUERY: "${q}"\n`;items.forEach((r,i)=>{ctx+=`  [${i+1}] ${r.title}\n      ${r.snippet}\n      ${r.url}\n`;});ctx+='\n';});return ctx;
-      }
+      function extractJsonObject(raw){const t=(raw||"").trim().replace(/```json\s*/gi,"").replace(/```\s*/g,"");const s=t.indexOf("{"),e=t.lastIndexOf("}");if(s===-1||e<=s)throw new Error("No JSON");return JSON.parse(t.slice(s,e+1));}
 
-      function extractJsonObject(raw) {
-        const text=(raw||"").trim().replace(/```json\s*/gi,"").replace(/```\s*/g,"");const s=text.indexOf("{"),e=text.lastIndexOf("}");
-        if(s===-1||e===-1||e<=s)throw new Error("No JSON");return JSON.parse(text.slice(s,e+1));
-      }
+      const GROQ_FB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
+      async function callGroq(prompt,opts={}){const{temperature=0.2,max_tokens=4096,model='openai/gpt-oss-120b',retries=2,_fb=false}=opts;const fp=prompt+'\n\nOutput ONLY valid JSON.';for(let i=0;i<=retries;i++){const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),25000);try{const res=await fetch("/.netlify/functions/transform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fp,temperature,max_tokens,model}),signal:ctrl.signal});clearTimeout(tid);const text=await res.text();let data;try{data=JSON.parse(text);}catch{data={error:text};}if(!res.ok)throw new Error(data?.error||'err');const f=(data.content||[]).find(c=>c.type==="text");return f?f.text:"";}catch(err){clearTimeout(tid);if(i===retries){const fb=GROQ_FB[model];if(fb&&!_fb)return callGroq(prompt,{...opts,model:fb,retries:1,_fb:true});throw err;}await new Promise(r=>setTimeout(r,1500*(i+1)));}}}
 
-      const GROQ_FB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','qwen/qwen3-32b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
-      async function callGroq(prompt,opts={}) {
-        const{temperature=0.2,max_tokens=4096,model='qwen/qwen3-32b',retries=2,_fb=false}=opts;
-        const fp=prompt+'\n\nOutput ONLY a single valid JSON object.';
-        for(let i=0;i<=retries;i++){const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),25000);
-          try{const res=await fetch("/.netlify/functions/transform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fp,temperature,max_tokens,model}),signal:ctrl.signal});clearTimeout(tid);const text=await res.text();let data;try{data=JSON.parse(text);}catch{data={error:text};}if(!res.ok)throw new Error(data?.error||'API '+res.status);const found=(data.content||[]).find(c=>c.type==="text");return found?found.text:"";}
-          catch(err){clearTimeout(tid);if(i===retries){const fb=GROQ_FB[model];if(fb&&!_fb)return callGroq(prompt,{...opts,model:fb,retries:1,_fb:true});throw err;}await new Promise(r=>setTimeout(r,1500*(i+1)));}
-        }
-      }
-
-      function validateCompanyData(d){d.techStack=d.techStack||["Not specified"];d.coreValues=d.coreValues||["Not specified"];d.culturalTone=d.culturalTone||"professional";d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;}
+      function validateCompanyData(d){d.techStack=d.techStack||[];d.coreValues=d.coreValues||[];d.culturalTone=d.culturalTone||"professional";d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;}
       function validateJDData(d){d.mandatorySkills=d.mandatorySkills||[];d.actionVerbs=d.actionVerbs||["Led","Built","Designed"];d.niceToHave=d.niceToHave||[];d.responsibilityPatterns=d.responsibilityPatterns||[];return d;}
+      function computeDualScores(bd){if(!bd)return{atsScore:0,hmScore:0,clearance:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const a=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const h=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{atsScore:a,hmScore:h,clearance:(a>=75&&h>=70)?'Cleared':(a<50||h<45)?'Grounded':'Conditional'};}
+      function formatSearchContext(sr){if(!sr)return '';let c='';Object.entries(sr).forEach(([q,items])=>{c+=`"${q}":\n`;items.forEach((r,i)=>{c+=`${r.title} - ${r.snippet}\n`;});});return c;}
 
-      function computeDualScores(bd){if(!bd)return{atsScore:0,hmScore:0,clearance:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const ats=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const hm=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{atsScore:ats,hmScore:hm,clearance:(ats>=75&&hm>=70)?'Cleared':(ats<50||hm<45)?'Grounded':'Conditional'};}
-
-      async function parseResumeFile(file){const ext=file.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(ext))throw new Error('Use PDF, DOCX, or TXT.');let text='';if(ext==='txt'){text=await file.text();}else if(ext==='docx'||ext==='doc'){const ab=await file.arrayBuffer();text=(await mammoth.extractRawText({arrayBuffer:ab})).value;}else if(ext==='pdf'){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;const pgs=[];for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();pgs.push(ct.items.map(it=>it.str).join(' '));}text=pgs.join('\n\n');}text=text.trim();if(text.length<20)throw new Error('Could not extract text.');return text;}
+      async function parseResumeFile(file){const ext=file.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(ext))throw new Error('Use PDF, DOCX, or TXT.');let text='';if(ext==='txt')text=await file.text();else if(ext==='docx'||ext==='doc'){const ab=await file.arrayBuffer();text=(await mammoth.extractRawText({arrayBuffer:ab})).value;}else if(ext==='pdf'){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;const p=[];for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();p.push(ct.items.map(it=>it.str).join(' '));}text=p.join('\n\n');}text=text.trim();if(text.length<20)throw new Error('Could not extract text.');return text;}
 
 
-      // ═══ SHARED UI COMPONENTS ═══
+      // ═══ UI COMPONENTS ═══
 
-      function Logo({size=20}){const bs=Math.round(size*0.8);return(<div style={{display:'flex',alignItems:'center'}}><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>r</span><svg width={bs} height={bs} viewBox="0 0 20 20" style={{margin:'0 -0.5px',position:'relative',top:Math.round(bs/18),flexShrink:0}}><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill="var(--color-primary-light)" stroke="var(--color-primary)" strokeWidth="1.1" strokeLinejoin="round"/><circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)"/><circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)"/></svg><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>lecrft</span></div>);}
+      function Logo({size=20}){const b=Math.round(size*0.8);return(<div style={{display:'flex',alignItems:'center'}}><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>r</span><svg width={b} height={b} viewBox="0 0 20 20" style={{margin:'0 -0.5px',position:'relative',top:Math.round(b/18),flexShrink:0}}><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill="var(--color-primary-light)" stroke="var(--color-primary)" strokeWidth="1.1" strokeLinejoin="round"/><circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)"/><circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)"/></svg><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>lecrft</span></div>);}
 
-      function PersonaAvatar({persona,size=32}){const isJ=persona==='joshua';return(<div style={{width:size,height:size,borderRadius:'50%',background:isJ?'var(--color-joshua)':'var(--color-adi)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-wordmark)',fontSize:Math.round(size*.42),fontWeight:800,flexShrink:0}}>{isJ?'J':'A'}</div>);}
+      function Avatar({persona,size=32}){const j=persona==='joshua';return(<div style={{width:size,height:size,borderRadius:'50%',background:j?'var(--color-joshua)':'var(--color-adi)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-wordmark)',fontSize:Math.round(size*.42),fontWeight:800,flexShrink:0}}>{j?'J':'A'}</div>);}
 
-      function AssistantMsg({persona,children}){return(<div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px',maxWidth:'88%'}}><PersonaAvatar persona={persona} size={28}/><div style={{background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55}}>{children}</div></div>);}
+      function Bubble({type,persona,children}){
+        if(type==='user') return <div className="msg-in" style={{display:'flex',justifyContent:'flex-end',padding:'0 16px'}}><div style={{background:'var(--color-primary-muted)',color:'#fff',borderRadius:'14px 4px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55,maxWidth:'78%'}}>{children}</div></div>;
+        if(type==='status') return <div className="msg-in" style={{display:'flex',justifyContent:'center',padding:'4px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--color-text-muted)',fontWeight:500,background:'var(--color-elevated)',border:'1px solid var(--color-border-light)',borderRadius:'var(--radius-full)',padding:'4px 14px'}}>{children}</div></div>;
+        return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px',maxWidth:'88%'}}><Avatar persona={persona} size={28}/><div style={{background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55}}>{children}</div></div>;
+      }
 
-      function UserMsg({children}){return(<div className="msg-in" style={{display:'flex',justifyContent:'flex-end',padding:'0 16px'}}><div style={{background:'var(--color-primary-muted)',color:'#fff',borderRadius:'14px 4px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55,maxWidth:'78%'}}>{children}</div></div>);}
+      function Dots({persona}){return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px'}}><Avatar persona={persona} size={28}/><div style={{display:'flex',gap:5,padding:'12px 16px',background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px'}}>{[0,.15,.3].map(d=><div key={d} style={{width:7,height:7,borderRadius:'50%',background:'var(--color-text-muted)',animation:`dotPulse 1.2s ease-in-out ${d}s infinite`}}/>)}</div></div>;}
 
-      function StatusMsg({text,loading}){return(<div className="msg-in" style={{display:'flex',justifyContent:'center',padding:'4px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--color-text-muted)',fontWeight:500,background:'var(--color-elevated)',border:'1px solid var(--color-border-light)',borderRadius:'var(--radius-full)',padding:'4px 14px'}}>{loading&&<div style={{width:10,height:10,border:'2px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>}{text}</div></div>);}
-
-      function TypingDots({persona}){return(<div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px'}}><PersonaAvatar persona={persona} size={28}/><div style={{display:'flex',gap:5,padding:'12px 16px',background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px'}}>{[0,.15,.3].map(d=><div key={d} style={{width:7,height:7,borderRadius:'50%',background:'var(--color-text-muted)',animation:`dotPulse 1.2s ease-in-out ${d}s infinite`}}/>)}</div></div>);}
-
-      function ActionButton({label,onClick,primary}){return(<button onClick={onClick} style={{padding:'8px 18px',borderRadius:'var(--radius-md)',background:primary?'var(--color-primary)':'var(--color-surface)',color:primary?'#fff':'var(--color-text)',border:primary?'none':'1px solid var(--color-border)',fontSize:13,fontWeight:600,cursor:'pointer'}}>{label}</button>);}
+      function Btn({label,onClick,primary}){return <button onClick={onClick} style={{padding:'8px 18px',borderRadius:'var(--radius-md)',background:primary?'var(--color-primary)':'var(--color-surface)',color:primary?'#fff':'var(--color-text)',border:primary?'none':'1px solid var(--color-border)',fontSize:13,fontWeight:600,cursor:'pointer'}}>{label}</button>;}
 
       function FitCard({data}){if(!data)return null;const{score,atsScore,hmScore,clearance,gaps,strengths,categories,potential}=data;const cl=clearance==='Cleared'?'var(--color-success)':clearance==='Grounded'?'var(--color-danger)':'var(--color-warning)';
-        return(<div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-primary)'}}>
+        return <div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-primary)'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-primary)'}}>FIT SNAPSHOT</span><div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:'var(--color-primary)'}}>{score}</span><span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:'var(--radius-full)',background:cl+'18',color:cl}}>{clearance}</span></div></div>
-          <div style={{display:'flex',gap:5,marginBottom:10,flexWrap:'wrap'}}>{[['ATS',atsScore],['HM',hmScore]].map(([l,v])=><div key={l} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:9,color:'var(--color-text-muted)'}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:600,color:v>=65?'var(--color-success)':'var(--color-warning)'}}>{v}</div></div>)}{categories&&Object.entries(categories).slice(0,3).map(([k,v])=><div key={k} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:8,color:'var(--color-text-muted)',textTransform:'uppercase'}}>{k.replace(/([A-Z])/g,' $1').trim().split(' ').slice(0,2).join(' ')}</div><div style={{fontFamily:'var(--font-mono)',fontSize:12,fontWeight:600,color:(v.score/v.max)>=0.7?'var(--color-success)':'var(--color-warning)'}}>{v.score}/{v.max}</div></div>)}</div>
+          <div style={{display:'flex',gap:5,marginBottom:10,flexWrap:'wrap'}}>{[['ATS',atsScore],['HM',hmScore]].map(([l,v])=><div key={l} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:9,color:'var(--color-text-muted)'}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:600,color:v>=65?'var(--color-success)':'var(--color-warning)'}}>{v}</div></div>)}</div>
           {gaps&&gaps.length>0&&<div style={{background:'var(--color-accent-light)',borderRadius:'var(--radius-sm)',padding:8,marginBottom:6}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-accent)',marginBottom:3}}>GAPS</div>{gaps.slice(0,3).map((g,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{g.item||g} — {g.reason||''}</div>)}</div>}
           {strengths&&strengths.length>0&&<div style={{background:'var(--color-primary-light)',borderRadius:'var(--radius-sm)',padding:8}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-primary)',marginBottom:3}}>STRENGTHS</div>{(Array.isArray(strengths)?strengths:[strengths]).slice(0,3).map((s,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{typeof s==='string'?s:s.item||''}</div>)}</div>}
-          {potential&&<div style={{marginTop:8,fontSize:11,color:'var(--color-text-muted)'}}>Potential: <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--color-primary)'}}>{potential}</span></div>}
-        </div></div>);
+          {potential&&<div style={{marginTop:8,fontSize:11,color:'var(--color-text-muted)'}}>Potential after optimization: <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--color-primary)'}}>{potential}</span></div>}
+        </div></div>;
       }
 
-      function JobCard({jobs}){if(!jobs||!jobs.length)return null;
-        return(<div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-accent)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-accent)'}}>
+      function JobList({jobs}){if(!jobs||!jobs.length)return null;
+        return <div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-accent)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-accent)'}}>
           <div style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-accent)',marginBottom:10}}>MATCHING ROLES</div>
-          {jobs.map((j,i)=><div key={i} style={{marginBottom:i<jobs.length-1?10:0,paddingBottom:i<jobs.length-1?10:0,borderBottom:i<jobs.length-1?'1px solid var(--color-border-light)':'none'}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{j.title}</div>
-            {j.snippet&&<div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>{j.snippet}</div>}
-            <a href={j.url} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--color-primary)',textDecoration:'none'}}>{j.url.slice(0,60)}...</a>
-          </div>)}
-        </div></div>);
+          {jobs.map((j,i)=><div key={i} style={{marginBottom:i<jobs.length-1?10:0,paddingBottom:i<jobs.length-1?10:0,borderBottom:i<jobs.length-1?'1px solid var(--color-border-light)':'none'}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{j.title}</div>{j.snippet&&<div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>{j.snippet}</div>}<a href={j.url} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--color-primary)',textDecoration:'none'}}>{j.url.length>60?j.url.slice(0,60)+'...':j.url}</a></div>)}
+        </div></div>;
       }
 
 
-      // ═══ AUTH SCREEN ═══
+      // ═══ AUTH ═══
       function AuthScreen(){
-        const[mode,setMode]=useState('login');const[email,setEmail]=useState('');const[password,setPassword]=useState('');const[loading,setLoading]=useState(false);const[error,setError]=useState('');
-        const go=async(e)=>{e.preventDefault();setLoading(true);setError('');try{let r;if(mode==='login')r=await supabase.auth.signInWithPassword({email,password});else r=await supabase.auth.signUp({email,password});if(r.error)throw r.error;}catch(err){setError(err.message);}setLoading(false);};
-        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+        const[m,setM]=useState('login');const[e,setE]=useState('');const[p,setP]=useState('');const[l,setL]=useState(false);const[err,setErr]=useState('');
+        const go=async(ev)=>{ev.preventDefault();setL(true);setErr('');try{let r;if(m==='login')r=await supabase.auth.signInWithPassword({email:e,password:p});else r=await supabase.auth.signUp({email:e,password:p});if(r.error)throw r.error;}catch(er){setErr(er.message);}setL(false);};
+        return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
           <Logo size={36}/><div style={{fontSize:13,color:'var(--color-text-muted)',marginTop:8,marginBottom:32,fontStyle:'italic'}}>Your career, in conversation.</div>
           <div style={{width:'100%',maxWidth:360,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:28}}>
-            <div style={{fontSize:18,fontWeight:600,marginBottom:4}}>{mode==='login'?'Welcome back':'Create account'}</div>
-            <div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:20}}>{mode==='login'?'Joshua and Adi are ready.':'Start your career conversation.'}</div>
+            <div style={{fontSize:18,fontWeight:600,marginBottom:4}}>{m==='login'?'Welcome back':'Create account'}</div>
+            <div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:20}}>{m==='login'?'Joshua and Adi are ready.':'Start your career conversation.'}</div>
             <button onClick={()=>supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}})} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border)',background:'var(--color-surface)',color:'var(--color-text)',fontSize:14,fontWeight:500,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16,cursor:'pointer'}}>
               <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>Continue with Google</button>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}><div style={{flex:1,height:1,background:'var(--color-border)'}}/><span style={{fontSize:11,color:'var(--color-text-muted)'}}>or</span><div style={{flex:1,height:1,background:'var(--color-border)'}}/></div>
-            <form onSubmit={go}><input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required style={{width:'100%',marginBottom:10}}/><input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required minLength={6} style={{width:'100%',marginBottom:14}}/>{error&&<div style={{fontSize:12,color:'var(--color-danger)',marginBottom:10}}>{error}</div>}<button type="submit" disabled={loading} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',background:'var(--color-primary)',color:'#fff',border:'none',fontSize:14,fontWeight:600,opacity:loading?.6:1,cursor:'pointer'}}>{loading?'...':(mode==='login'?'Sign in':'Sign up')}</button></form>
-            <div style={{textAlign:'center',marginTop:14,fontSize:13,color:'var(--color-text-muted)'}}>{mode==='login'?"No account?":"Have account?"}<button onClick={()=>{setMode(mode==='login'?'signup':'login');setError('');}} style={{background:'none',border:'none',color:'var(--color-primary)',fontWeight:600,fontSize:13,marginLeft:4,cursor:'pointer'}}>{mode==='login'?'Sign up':'Sign in'}</button></div>
+            <form onSubmit={go}><input type="email" placeholder="Email" value={e} onChange={ev=>setE(ev.target.value)} required style={{width:'100%',marginBottom:10}}/><input type="password" placeholder="Password" value={p} onChange={ev=>setP(ev.target.value)} required minLength={6} style={{width:'100%',marginBottom:14}}/>{err&&<div style={{fontSize:12,color:'var(--color-danger)',marginBottom:10}}>{err}</div>}<button type="submit" disabled={l} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',background:'var(--color-primary)',color:'#fff',border:'none',fontSize:14,fontWeight:600,opacity:l?.6:1,cursor:'pointer'}}>{l?'...':(m==='login'?'Sign in':'Sign up')}</button></form>
+            <div style={{textAlign:'center',marginTop:14,fontSize:13,color:'var(--color-text-muted)'}}>{m==='login'?"No account?":"Have account?"}<button onClick={()=>{setM(m==='login'?'signup':'login');setErr('');}} style={{background:'none',border:'none',color:'var(--color-primary)',fontWeight:600,fontSize:13,marginLeft:4,cursor:'pointer'}}>{m==='login'?'Sign up':'Sign in'}</button></div>
           </div>
-        </div>);
+        </div>;
       }
 
-      // ═══ LANGUAGE SELECT ═══
-      function LanguageSelect({onSelect}){
-        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
-          <Logo size={32}/><div style={{fontSize:22,fontWeight:700,marginTop:24,marginBottom:8}}>Pick your voice</div><div style={{fontSize:14,color:'var(--color-text-secondary)',marginBottom:32,textAlign:'center',maxWidth:360}}>Same intelligence, different personality.</div>
-          <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center'}}>
-            {[{id:'joshua',lang:'en',name:'Joshua',tag:'Career strategist',sample:'"Got it. You\'re a real contender — let me show you where."',label:'English',color:'var(--color-joshua)',light:'var(--color-joshua-light)'},
-              {id:'adi',lang:'hinglish',name:'Adi',tag:'Woh dost jo seedha bolta hai',sample:'"Dekh, seedha bolu? Tu genuine contender hai."',label:'Hinglish',color:'var(--color-adi)',light:'var(--color-adi-light)'}
-            ].map(p=><button key={p.id} onClick={()=>onSelect(p.lang,p.id)} style={{width:260,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',cursor:'pointer'}}>
-              <div style={{background:p.light,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><PersonaAvatar persona={p.id} size={40}/><div><div style={{fontWeight:700,fontSize:16,color:p.color}}>{p.name}</div><div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{p.tag}</div></div></div>
-              <div style={{padding:'12px 18px'}}><div style={{fontSize:13,fontStyle:'italic',color:'var(--color-text-secondary)',lineHeight:1.5,borderLeft:`2px solid ${p.color}`,paddingLeft:10,opacity:0.8}}>{p.sample}</div><div style={{marginTop:10,display:'inline-block',padding:'3px 10px',borderRadius:'var(--radius-full)',background:p.light,fontSize:11,fontWeight:600,color:p.color}}>{p.label}</div></div>
-            </button>)}
-          </div>
-        </div>);
-      }
 
-      // ═══ SESSION HUB ═══
-      function SessionHub({user,userProfile,onStartChat,onSignOut}){
-        const persona=userProfile?.language_pref==='hinglish'?'adi':'joshua';const other=persona==='joshua'?'adi':'joshua';const name=userProfile?.name||user?.email?.split('@')[0]||'there';
-        const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
+      // ═══ CHARACTER SELECT ═══
+      function CharacterSelect({onSelect}){
+        const [theme,setTheme] = useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
         const toggle=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
-        return(<div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
-          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}><Logo size={18}/><div style={{display:'flex',gap:10,alignItems:'center'}}><button onClick={toggle} style={{width:40,height:24,borderRadius:12,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative'}}><div style={{width:18,height:18,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?19:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}/></button><button onClick={onSignOut} style={{padding:'5px 12px',borderRadius:'var(--radius-full)',border:'1px solid var(--color-border)',background:'none',fontSize:12,color:'var(--color-text-muted)',fontWeight:500,cursor:'pointer'}}>Sign out</button></div></nav>
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
-            <Logo size={32}/><div style={{fontSize:20,fontWeight:600,marginTop:20,marginBottom:4}}>Hey {name}</div><div style={{fontSize:14,color:'var(--color-text-secondary)',marginBottom:36,textAlign:'center',maxWidth:360}}>Ready to work on your next role?</div>
-            <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center',marginBottom:32}}>
-              {[persona,other].map((p,i)=><button key={p} onClick={()=>onStartChat(p)} style={{width:280,background:'var(--color-surface)',border:i===0?'2px solid var(--color-primary)':'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',opacity:i===0?1:0.75,cursor:'pointer'}}>
-                <div style={{background:p==='joshua'?'var(--color-joshua-light)':'var(--color-adi-light)',padding:'18px 20px',display:'flex',gap:12,alignItems:'center'}}><PersonaAvatar persona={p} size={44}/><div><div style={{fontWeight:700,fontSize:17,color:p==='joshua'?'var(--color-joshua)':'var(--color-adi)'}}>{p==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:12,color:'var(--color-text-secondary)'}}>{p==='joshua'?'English · Career strategist':'Hinglish · Career dost'}</div></div></div>
-                <div style={{padding:'14px 20px',textAlign:'center'}}><span style={{fontSize:14,fontWeight:600,color:i===0?'var(--color-primary)':'var(--color-text-muted)'}}>{i===0?'Start conversation':'Try '+( p==='joshua'?'English':'Hinglish')}</span></div>
-              </button>)}
+
+        return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
+          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+            <Logo size={18}/>
+            <button onClick={toggle} style={{width:40,height:24,borderRadius:12,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:18,height:18,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?19:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}/></button>
+          </nav>
+
+          <div style={{flex:1,padding:'32px 16px',maxWidth:640,margin:'0 auto',width:'100%'}}>
+            <div style={{textAlign:'center',marginBottom:32}}>
+              <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>Where are you right now?</div>
+              <div style={{fontSize:14,color:'var(--color-text-secondary)'}}>Pick the person whose situation feels closest to yours.</div>
+            </div>
+
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {CHARACTERS.map(c => (
+                <button key={c.id} onClick={()=>onSelect(c)} style={{
+                  width:'100%', textAlign:'left', cursor:'pointer',
+                  background:'var(--color-surface)', border:'1px solid var(--color-border)',
+                  borderRadius:'var(--radius-lg)', padding:'16px 18px',
+                  transition:'border-color 0.2s',
+                }}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--color-primary)'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                    <div style={{fontSize:15,fontWeight:600}}>{c.name}, {c.city}</div>
+                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:'var(--radius-full)',background:c.pack==='fresher'?'var(--color-joshua-light)':c.pack==='interview'?'var(--color-accent-light)':'var(--color-primary-light)',color:c.pack==='fresher'?'var(--color-joshua)':c.pack==='interview'?'var(--color-accent)':'var(--color-primary)',fontWeight:600,flexShrink:0}}>{c.pack==='fresher'?'Fresher':c.pack==='interview'?'Interview':'Resume'}</span>
+                  </div>
+                  <div style={{fontSize:13,color:'var(--color-text-secondary)',lineHeight:1.5,marginBottom:6}}>"{c.story}"</div>
+                  <div style={{fontSize:11,color:'var(--color-text-muted)'}}>{c.hook}</div>
+                </button>
+              ))}
             </div>
           </div>
-        </div>);
+        </div>;
       }
 
 
-      // ═══════════════════════════════════════════════════════
-      // CONVERSATION PAGE — DETERMINISTIC FLOW
-      // ═══════════════════════════════════════════════════════
+      // ═══ PERSONA SELECT (after character) ═══
+      function PersonaSelect({character,onSelect}){
+        return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
+          <Logo size={28}/>
+          <div style={{fontSize:18,fontWeight:600,marginTop:20,marginBottom:6}}>Who do you want in your corner?</div>
+          <div style={{fontSize:13,color:'var(--color-text-secondary)',marginBottom:28,textAlign:'center',maxWidth:340}}>Same intelligence. {character.name}'s situation, your voice.</div>
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center'}}>
+            {[{id:'joshua',name:'Joshua',tag:'Direct, strategic, English',color:'var(--color-joshua)',light:'var(--color-joshua-light)'},
+              {id:'adi',name:'Adi',tag:'Friendly, Hinglish, peer energy',color:'var(--color-adi)',light:'var(--color-adi-light)'}
+            ].map(p=><button key={p.id} onClick={()=>onSelect(p.id)} style={{width:240,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',cursor:'pointer'}}>
+              <div style={{background:p.light,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><Avatar persona={p.id} size={40}/><div><div style={{fontWeight:700,fontSize:16,color:p.color}}>{p.name}</div><div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{p.tag}</div></div></div>
+              <div style={{padding:'14px 18px',textAlign:'center'}}><span style={{fontSize:14,fontWeight:600,color:'var(--color-primary)'}}>Start with {p.name}</span></div>
+            </button>)}
+          </div>
+        </div>;
+      }
 
-      function ConversationPage({user,initialPersona,onSignOut,onBack}){
-        // ─── State ───
-        const [persona] = useState(initialPersona);
-        const [chatLog, setChatLog] = useState([]); // [{type:'assistant'|'user'|'status'|'fit'|'jobs'|'actions', ...}]
-        const [input, setInput] = useState('');
-        const [step, setStep] = useState(0); // 0=intro, 1-6=discovery Qs, 7=routing, 8+=post-artifact
-        const [answers, setAnswers] = useState({});
-        const [resumeText, setResumeText] = useState('');
-        const [jdText, setJdText] = useState('');
-        const [fitData, setFitData] = useState(null);
-        const [jobs, setJobs] = useState(null);
-        const [busy, setBusy] = useState(false);
-        const [statusText, setStatusText] = useState('');
-        const [showUpload, setShowUpload] = useState(false);
-        const [showJdInput, setShowJdInput] = useState(false);
-        const [showPaste, setShowPaste] = useState(false);
-        const [postActions, setPostActions] = useState(null); // [{label, action}]
+
+      // ═══ CONVERSATION PAGE (deterministic + persona warmth) ═══
+      function ConvoPage({user,character,persona,onBack}){
+        const [log,setLog] = useState([]);
+        const [input,setInput] = useState('');
+        const [step,setStep] = useState(0); // 0=confirm, 1=follow-up-1, 2=follow-up-2, 3=routing, 4+=artifact
+        const [answers,setAnswers] = useState({});
+        const [resumeText,setResumeText] = useState('');
+        const [jdText,setJdText] = useState('');
+        const [fitData,setFitData] = useState(null);
+        const [jobs,setJobs] = useState(null);
+        const [busy,setBusy] = useState(false);
+        const [statusText,setStatusText] = useState('');
+        const [showUpload,setShowUpload] = useState(false);
+        const [showJd,setShowJd] = useState(false);
+        const [showPaste,setShowPaste] = useState(false);
+        const [actions,setActions] = useState(null);
         const bottomRef = useRef(null);
         const inputRef = useRef(null);
         const fileRef = useRef(null);
         const v = VOICE[persona];
+        const fups = FOLLOW_UPS[character.id][persona];
 
-        useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[chatLog,busy,statusText]);
-        useEffect(()=>{inputRef.current?.focus();},[step,showUpload,showJdInput]);
+        useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[log,busy,statusText,actions]);
+        useEffect(()=>{inputRef.current?.focus();},[step,showUpload,showJd]);
 
-        const addMsg = (type, content, extra={}) => setChatLog(prev=>[...prev,{type,content,...extra}]);
+        const add = (type,content,extra={}) => setLog(prev=>[...prev,{type,content,...extra}]);
 
-        // ─── Boot: persona intro + Q1 ───
+        // Boot: confirmation + first follow-up
         useEffect(()=>{
-          addMsg('assistant', v.intro);
+          const confirmText = v.confirm(character);
+          add('assistant', confirmText);
           setTimeout(()=>{
-            addMsg('assistant', DISCOVERY[0][persona]);
+            add('assistant', fups[0]);
             setStep(1);
-          }, 600);
+          },700);
+
+          // Store self-selected persona
+          supabase.from('users').update({persona_blend:{self_selected:character.id,character_type:character.type,pack:character.pack}}).eq('id',user.id);
         },[]);
 
-        // ─── Handle discovery answer ───
-        const handleDiscoveryAnswer = (text) => {
-          const qIdx = step - 1; // 0-indexed into DISCOVERY
-          const q = DISCOVERY[qIdx];
-          addMsg('user', text);
-          setAnswers(prev => ({...prev, [q.key]: text}));
+        // Handle answer to follow-up questions
+        const handleAnswer = (text) => {
+          add('user', text);
+          setAnswers(prev=>({...prev, ['q'+step]: text}));
 
-          // Random short ack
-          const ack = v.ack_short[Math.floor(Math.random() * v.ack_short.length)];
-
-          if (step < 6) {
-            // More questions to ask
+          if(step === 1){
+            // Ask follow-up 2
             setTimeout(()=>{
-              addMsg('assistant', ack + ' ' + DISCOVERY[step][persona]);
-              setStep(step + 1);
-            }, 400);
-          } else {
-            // All 6 done — route
-            setTimeout(()=>routeUser({...answers, [q.key]: text}), 400);
+              add('assistant', fups[1]);
+              setStep(2);
+            },500);
+          } else if(step === 2){
+            // Route based on character type
+            setTimeout(()=>route({...answers, q2:text}),500);
           }
         };
 
-        // ─── Route after discovery ───
-        const routeUser = (allAnswers) => {
-          setStep(7);
-          const hasResumeSignal = !/scratch|nahi|no|none|nope/.test((allAnswers.resumeStatus||'').toLowerCase());
-          const hasDirection = !/forming|soch|nahi|confused|figure|pata nahi/.test((allAnswers.direction||'').toLowerCase());
+        // Deterministic routing after 2 follow-ups
+        const route = (allAnswers) => {
+          setStep(3);
+          const type = character.type;
 
-          // Build summary
-          const summaryParts = [];
-          if (allAnswers.education) summaryParts.push(allAnswers.education);
-          if (allAnswers.field) summaryParts.push(allAnswers.field);
-          const summary = v.summary_prefix + ' ' + summaryParts.join(', ') + '.';
-          addMsg('assistant', summary);
-
-          if (hasResumeSignal) {
-            // Has resume → ask for upload
-            setTimeout(()=>{
-              addMsg('assistant', v.resume_ask);
-              setShowUpload(true);
-            }, 500);
-          } else if (hasDirection) {
-            // No resume but clear direction → role recommendations first
-            setTimeout(()=>{
-              addMsg('assistant', v.no_jd_roles);
-              runJobSearch(allAnswers);
-            }, 500);
+          if(type === 'ghost' || type === 'freshgrad'){
+            // Fresher path — search for roles
+            add('assistant', v.transition_search);
+            setTimeout(()=>searchJobs(allAnswers),400);
+          } else if(type === 'bomber'){
+            // Interview path — skip resume, ask for JD
+            add('assistant', v.transition_jd);
+            setShowJd(true); setStep(4);
           } else {
-            // No resume, no direction → role recommendations to help find direction
-            setTimeout(()=>{
-              addMsg('assistant', v.no_jd_roles);
-              runJobSearch(allAnswers);
-            }, 500);
+            // Resume path (buried, drifter, switcher, stalled)
+            add('assistant', v.transition_resume);
+            setShowUpload(true); setStep(4);
           }
         };
 
-        // ─── Job search via Serper ───
-        const runJobSearch = async (allAnswers) => {
-          setBusy(true); setStatusText('Searching for matching roles...');
-          try {
-            const field = allAnswers.field || 'technology';
-            const queries = [
-              `${field} jobs India 2026 site:linkedin.com/jobs`,
-              `${field} hiring India site:naukri.com OR site:wellfound.com`,
-              `${field} entry level OR mid level India openings`
-            ];
+        // Serper job search
+        const searchJobs = async(ctx)=>{
+          setBusy(true); setStatusText('Searching for roles...');
+          try{
+            const field = ctx.q1 || character.story;
+            const queries = [`${field} jobs India site:linkedin.com/jobs`, `${field} hiring India site:naukri.com OR site:wellfound.com`, `entry level ${field} India openings`];
             const results = await callSearch(queries);
-            let jobList = [];
-            if (results) {
-              Object.values(results).forEach(items => (items||[]).forEach(r => {
-                if (r.title && r.url && !jobList.find(j => j.url === r.url)) jobList.push({title:r.title, url:r.url, snippet:(r.snippet||'').slice(0,180)});
-              }));
-            }
-            jobList = jobList.slice(0, 5);
-            setStatusText('');
-            if (jobList.length > 0) {
-              setJobs(jobList);
-              addMsg('jobs', null, {jobs: jobList});
-              setPostActions([
-                {label: 'Upload resume for one of these', action: 'upload_resume'},
-                {label: 'Search for different roles', action: 'search_again'},
-              ]);
-            } else {
-              addMsg('assistant', persona === 'joshua' ? "Didn't find strong matches with that search. Let me try differently — upload your resume and a specific JD, and I'll score your fit directly." : "Search se matches nahi aaye. Resume aur JD do, direct fit score nikaalte hain.");
-              setShowUpload(true);
-            }
-          } catch(err) {
-            setStatusText('');
-            addMsg('assistant', 'Search failed. Upload your resume and JD instead.');
-            setShowUpload(true);
-          }
+            let jl=[]; if(results)Object.values(results).forEach(items=>(items||[]).forEach(r=>{if(r.title&&r.url&&!jl.find(j=>j.url===r.url))jl.push({title:r.title,url:r.url,snippet:(r.snippet||'').slice(0,180)});}));
+            jl=jl.slice(0,5); setStatusText('');
+            if(jl.length>0){setJobs(jl);add('jobs',null,{jobs:jl});setActions([{label:'Upload resume for one of these',action:'upload'},{label:'Search different roles',action:'search'}]);}
+            else{add('assistant',persona==='joshua'?"Didn't find strong matches. Upload your resume and a JD — I'll score your fit directly.":"Strong matches nahi mile. Resume aur JD do, direct scoring karta hoon.");setShowUpload(true);}
+          }catch{setStatusText('');add('assistant','Search failed — upload resume and JD instead.');setShowUpload(true);}
+          setBusy(false);setStep(5);
+        };
+
+        // File upload
+        const handleFile = async(file)=>{
+          if(!file)return;setBusy(true);setShowUpload(false);setShowPaste(false);
+          add('status','Parsing '+file.name+'...');
+          try{
+            const t=await parseResumeFile(file);setResumeText(t);
+            add('status','Resume parsed — '+t.split(/\s+/).length+' words');
+            await supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true,version:1});
+            setTimeout(()=>{add('assistant',v.transition_jd);setShowJd(true);},400);
+          }catch(err){add('assistant','Could not read — '+err.message+'. Try pasting text.');setShowPaste(true);}
           setBusy(false);
         };
 
-        // ─── File upload ───
-        const handleFile = async (file) => {
-          if(!file) return;
-          setBusy(true); setShowUpload(false);
-          addMsg('status', `Parsing ${file.name}...`);
-          try {
-            const text = await parseResumeFile(file);
-            setResumeText(text);
-            addMsg('status', `Resume parsed — ${text.split(/\s+/).length} words`);
-            await supabase.from('resumes').insert({user_id:user.id, raw_text:text, is_master:true, version:1});
-            setTimeout(()=>{
-              addMsg('assistant', v.jd_ask);
-              setShowJdInput(true);
-            }, 400);
-          } catch(err) {
-            addMsg('assistant', `Could not read — ${err.message}. Try pasting text.`);
-            setShowPaste(true);
-          }
-          setBusy(false);
-        };
-
-        // ─── JD submit → analysis pipeline ───
-        const handleJdSubmit = async () => {
-          if(!jdText.trim()) return;
-          const jd = jdText.trim(); setShowJdInput(false); setJdText('');
-          addMsg('user', jd.length > 150 ? jd.slice(0,150) + '...' : jd);
-          addMsg('assistant', v.analyzing);
+        // JD + analysis pipeline
+        const analyze = async()=>{
+          if(!jdText.trim())return;
+          const jd=jdText.trim();setShowJd(false);setJdText('');
+          add('user',jd.length>150?jd.slice(0,150)+'...':jd);
+          add('assistant',persona==='joshua'?'Give me a moment — scoring your fit.':'Ek minute — fit score nikaal raha hoon.');
           setBusy(true);
-
-          try {
-            // 1. Extract company/role
+          try{
             setStatusText('Identifying role...');
-            const {text:eJ} = await callLLM({system:'Extract company and role. ONLY JSON: {"company":"","role":""}',messages:[{role:'user',content:jd.slice(0,2000)}],temperature:0.1,max_tokens:80,model:'haiku'});
-            let ext; try{ext=extractJsonObject(eJ);}catch{ext={company:'Company',role:'Role'};}
-            addMsg('status', `${ext.role} at ${ext.company}`);
+            const{text:eJ}=await callLLM({system:'Extract company and role. ONLY JSON: {"company":"","role":""}',messages:[{role:'user',content:jd.slice(0,2000)}],temperature:0.1,max_tokens:80,model:'haiku'});
+            let ext;try{ext=extractJsonObject(eJ);}catch{ext={company:'Company',role:'Role'};}
+            add('status',ext.role+' at '+ext.company);
 
-            // 2. Workspace
             const{data:ws}=await supabase.from('workspaces').insert({user_id:user.id,role_title:ext.role,company:ext.company,jd_raw:jd,status:'analyzing'}).select().single();
 
-            // 3. Company research (Groq — free)
-            setStatusText('Researching ' + ext.company + '...');
-            const sr=await callSearch([`${ext.company} engineering culture`,`${ext.company} ${ext.role} interview`,`${ext.company} glassdoor`]);
+            setStatusText('Researching '+ext.company+'...');
+            const sr=await callSearch([ext.company+' engineering culture',ext.company+' '+ext.role+' interview',ext.company+' glassdoor']);
             const sCtx=formatSearchContext(sr);
-            const cRaw=await callGroq(`Analyze ${ext.company} for ${ext.role}.\n${sCtx}\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","redFlags":[],"emphasize":[]}`,{model:'openai/gpt-oss-120b',max_tokens:2500});
-            const companyData=validateCompanyData(extractJsonObject(cRaw));
+            const cRaw=await callGroq('Analyze '+ext.company+' for '+ext.role+'.\n'+sCtx+'\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","redFlags":[],"emphasize":[]}',{model:'openai/gpt-oss-120b',max_tokens:2500});
+            const cd=validateCompanyData(extractJsonObject(cRaw));
 
-            // 4. JD parsing (Groq — free)
             setStatusText('Parsing JD...');
-            const jRaw=await callGroq(`Parse JD.\n\nJD:\n${jd}\n\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"winningPhrases":[]}`,{model:'llama-3.1-8b-instant',max_tokens:2500,temperature:0.1});
-            const jdData=validateJDData(extractJsonObject(jRaw));
-            if(ws)await supabase.from('workspaces').update({jd_parsed:jdData,company_data:companyData}).eq('id',ws.id);
+            const jRaw=await callGroq('Parse JD.\nJD:\n'+jd+'\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"winningPhrases":[]}',{model:'llama-3.1-8b-instant',max_tokens:2500,temperature:0.1});
+            const jdD=validateJDData(extractJsonObject(jRaw));
+            if(ws)await supabase.from('workspaces').update({jd_parsed:jdD,company_data:cd}).eq('id',ws.id);
 
-            // 5. Scoring (Groq — free)
             setStatusText('Scoring fit...');
-            const sP=`Score resume vs JD.\n\nRESUME:\n${resumeText.slice(0,3000)}\n\nCOMPANY:${JSON.stringify(companyData)}\nJD:${JSON.stringify(jdData)}\nTARGET:${ext.role} at ${ext.company}\n\nRubric(100):MustHave(30),Responsibilities(12),Tonality(8),Metrics(15),Seniority(10),ATS(10),Tooling(10),Differentiators(5).\n\nReturn JSON:{"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}`;
+            const sourceText = resumeText || (answers.q1||'')+' '+(answers.q2||'');
+            const sP='Score resume vs JD.\nRESUME:\n'+sourceText.slice(0,3000)+'\nCOMPANY:'+JSON.stringify(cd)+'\nJD:'+JSON.stringify(jdD)+'\nTARGET:'+ext.role+' at '+ext.company+'\nRubric(100):MustHave(30),Responsibilities(12),Tonality(8),Metrics(15),Seniority(10),ATS(10),Tooling(10),Differentiators(5).\nReturn JSON:{"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}';
             const scRaw=await callGroq(sP,{model:'openai/gpt-oss-120b',max_tokens:3000,temperature:0.1});
             const sd=extractJsonObject(scRaw);
             const dual=computeDualScores(sd.scoreBreakdown);
-            const fit={score:sd.matchScore,atsScore:dual.atsScore,hmScore:dual.hmScore,clearance:dual.clearance,gaps:sd.topGaps||[],strengths:sd.topStrengths||[],categories:sd.scoreBreakdown,potential:sd.potentialScoreAfter,companyData,jdData};
+            const fit={score:sd.matchScore,atsScore:dual.atsScore,hmScore:dual.hmScore,clearance:dual.clearance,gaps:sd.topGaps||[],strengths:sd.topStrengths||[],categories:sd.scoreBreakdown,potential:sd.potentialScoreAfter};
             setFitData(fit);
-
-            // Store
             if(ws)await supabase.from('fit_snapshots').insert({workspace_id:ws.id,overall_score:fit.score,ats_score:fit.atsScore,hm_score:fit.hmScore,category_scores:fit.categories,potential_score:fit.potential});
 
-            // 6. Verdict (Haiku — one call, ~$0.002)
             setStatusText('');
-            const verdictPrompt = persona === 'joshua'
-              ? `You scored ${fit.score}/100. ${fit.clearance}. Top gap: ${fit.gaps[0]?.item||'none'}. Top strength: ${fit.strengths[0]||'none'}. Deliver the verdict in 2-3 sentences. Be direct.`
-              : `Score aaya ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences mein verdict do.`;
-            const{text:verdict,cost}=await callLLM({system:`You are ${persona==='joshua'?'Joshua, direct career strategist':'Adi, Hinglish career dost'}. No markdown. Plain text only.`,messages:[{role:'user',content:verdictPrompt}],temperature:0.4,max_tokens:150,model:'haiku'});
+            const vPrompt=persona==='joshua'?`Score: ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences, direct.`:`Score aaya ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences.`;
+            const{text:verdict,cost}=await callLLM({system:`You are ${persona==='joshua'?'Joshua, direct career strategist':'Adi, Hinglish career dost'}. No markdown. Plain text.`,messages:[{role:'user',content:vPrompt}],temperature:0.4,max_tokens:150,model:'haiku'});
             sessionCost+=(cost.total||0);
 
-            addMsg('assistant', verdict);
-            addMsg('fit', null, {fitData:fit});
-            setPostActions([
-              {label:'Rewrite my resume for this role', action:'rewrite'},
-              {label:'Find similar roles', action:'similar_roles'},
-              {label:'Analyze a different role', action:'new_analysis'},
-            ]);
-            setStep(8);
-            console.log(`[pipeline] Groq:$0.00 Haiku:$${(cost.total||0).toFixed(4)} Session:$${sessionCost.toFixed(4)}`);
-
-          } catch(err) {
-            setStatusText('');
-            addMsg('assistant', `Analysis error: ${err.message}. Paste the JD again.`);
-            setShowJdInput(true);
-          }
+            add('assistant',verdict);
+            add('fit',null,{fitData:fit});
+            setActions([{label:'Rewrite resume for this role',action:'rewrite'},{label:'Find similar roles',action:'search'},{label:'Analyze different role',action:'new'}]);
+            console.log('[pipeline] Session: $'+sessionCost.toFixed(4));
+          }catch(err){setStatusText('');add('assistant','Analysis error: '+err.message+'. Try pasting JD again.');setShowJd(true);}
           setBusy(false);
         };
 
-        // ─── Post-artifact actions ───
-        const handleAction = async (action) => {
-          setPostActions(null);
-          if (action === 'upload_resume') {
-            setShowUpload(true);
-          } else if (action === 'search_again') {
-            addMsg('assistant', persona === 'joshua' ? "What type of role are you looking for?" : "Kis type ka role chahiye?");
-            setStep(9); // free text for search
-          } else if (action === 'rewrite') {
-            addMsg('assistant', persona === 'joshua' ? "Resume rewrite is coming in the next update. For now, use the gaps from the fit snapshot to guide your edits." : "Resume rewrite next update mein aayega. Abhi ke liye fit snapshot ke gaps follow karo.");
-            setPostActions([{label:'Find similar roles',action:'similar_roles'},{label:'Analyze a different role',action:'new_analysis'}]);
-          } else if (action === 'similar_roles') {
-            await runJobSearch(answers);
-          } else if (action === 'new_analysis') {
-            setResumeText(''); setJdText(''); setFitData(null); setJobs(null);
-            addMsg('assistant', v.resume_ask);
-            setShowUpload(true);
-          }
+        // Post-artifact actions
+        const handleAction=(a)=>{
+          setActions(null);
+          if(a==='upload'){setShowUpload(true);}
+          else if(a==='search'){add('assistant',persona==='joshua'?"What type of role?":"Kis type ka role?");setStep(9);}
+          else if(a==='rewrite'){add('assistant',persona==='joshua'?"Resume rewrite is coming in the next update. Use the gap analysis to guide your edits for now.":"Resume rewrite next update mein aayega. Abhi gap analysis follow karo.");setActions([{label:'Find similar roles',action:'search'},{label:'New analysis',action:'new'}]);}
+          else if(a==='new'){setResumeText('');setFitData(null);setJobs(null);add('assistant',v.transition_resume);setShowUpload(true);}
         };
 
-        // ─── Handle text input (discovery or free search) ───
-        const handleSend = () => {
-          if (!input.trim()) return;
-          const text = input.trim(); setInput('');
-
-          if (step >= 1 && step <= 6) {
-            handleDiscoveryAnswer(text);
-          } else if (step === 9) {
-            // Free text for job search
-            addMsg('user', text);
-            runJobSearch({...answers, field: text});
-          } else if (showJdInput) {
-            setJdText(text);
-            handleJdSubmit();
-          }
+        // Text input
+        const send=()=>{
+          if(!input.trim())return;
+          const t=input.trim();setInput('');
+          if(step>=1&&step<=2){handleAnswer(t);}
+          else if(step===9){add('user',t);searchJobs({q1:t});}
+          else if(showJd){setJdText(t);setTimeout(()=>analyze(),50);}
         };
 
-        // ─── Theme ───
         const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
         const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
 
-        const showTextInput = (step >= 1 && step <= 6) || step === 9;
+        const showText = (step>=1&&step<=2)||step===9;
 
-        return(
-          <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
-            {/* NAV */}
-            <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-              <div style={{display:'flex',alignItems:'center',gap:12}}>
-                <button onClick={onBack} style={{background:'none',border:'none',padding:4,display:'flex',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-                <PersonaAvatar persona={persona} size={30}/>
-                <div><div style={{fontSize:14,fontWeight:600}}>{persona==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:10,color:'var(--color-success)',display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:'var(--color-success)'}}/>online</div></div>
-              </div>
-              <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                {fitData&&<span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--color-primary)'}}>{fitData.score}/100</span>}
-                <Logo size={14}/>
-                <button onClick={toggleTheme} style={{width:36,height:22,borderRadius:11,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:16,height:16,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?17:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}/></button>
-              </div>
-            </nav>
-
-            {/* MESSAGES */}
-            <div style={{flex:1,overflowY:'auto',padding:'16px 0',display:'flex',flexDirection:'column',gap:14}}>
-              <div style={{maxWidth:'var(--max-conversation)',width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
-                {chatLog.map((msg,i) => {
-                  if(msg.type==='assistant') return <AssistantMsg key={i} persona={persona}>{msg.content}</AssistantMsg>;
-                  if(msg.type==='user') return <UserMsg key={i}>{msg.content}</UserMsg>;
-                  if(msg.type==='status') return <StatusMsg key={i} text={msg.content}/>;
-                  if(msg.type==='fit') return <FitCard key={i} data={msg.fitData}/>;
-                  if(msg.type==='jobs') return <JobCard key={i} jobs={msg.jobs}/>;
-                  return null;
-                })}
-                {statusText && <StatusMsg text={statusText} loading/>}
-                {busy && !statusText && <TypingDots persona={persona}/>}
-
-                {/* Post-artifact action buttons */}
-                {postActions && (
-                  <div className="msg-in" style={{padding:'0 16px 0 52px',display:'flex',gap:8,flexWrap:'wrap'}}>
-                    {postActions.map((a,i) => <ActionButton key={i} label={a.label} onClick={()=>handleAction(a.action)} primary={i===0}/>)}
-                  </div>
-                )}
-                <div ref={bottomRef}/>
-              </div>
+        return <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
+          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <button onClick={onBack} style={{background:'none',border:'none',padding:4,display:'flex',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+              <Avatar persona={persona} size={30}/>
+              <div><div style={{fontSize:14,fontWeight:600}}>{persona==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:10,color:'var(--color-success)',display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:'var(--color-success)'}}/>online</div></div>
             </div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              {fitData&&<span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--color-primary)'}}>{fitData.score}/100</span>}
+              <Logo size={14}/>
+              <button onClick={toggleTheme} style={{width:36,height:22,borderRadius:11,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:16,height:16,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?17:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}/></button>
+            </div>
+          </nav>
 
-            {/* FILE UPLOAD */}
-            {showUpload && (
-              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
-                  <div onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-primary)';}} onDragLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'} onDrop={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-border)';handleFile(e.dataTransfer.files[0]);}} style={{border:'2px dashed var(--color-border)',borderRadius:'var(--radius-md)',padding:16,textAlign:'center',cursor:'pointer'}}>
-                    <div style={{fontSize:13,fontWeight:500,marginBottom:3}}>Drop your resume here</div><div style={{fontSize:11,color:'var(--color-text-muted)'}}>PDF, DOCX, or TXT</div>
-                  </div>
-                  <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])}/>
-                  <div style={{textAlign:'center',marginTop:6}}><button onClick={()=>{setShowUpload(false);setShowPaste(true);}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>or paste text</button></div>
-                </div>
-              </div>
-            )}
-
-            {/* PASTE RESUME */}
-            {showPaste && (
-              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
-                  <textarea placeholder="Paste resume text..." rows={5} style={{width:'100%',marginBottom:6}} id="rp"/>
-                  <ActionButton label="Submit resume" primary onClick={()=>{const t=document.getElementById('rp').value.trim();if(t.length>20){setResumeText(t);setShowPaste(false);supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true});addMsg('status','Resume — '+t.split(/\s+/).length+' words');setTimeout(()=>{addMsg('assistant',v.jd_ask);setShowJdInput(true);},400);}}}/>
-                </div>
-              </div>
-            )}
-
-            {/* JD INPUT */}
-            {showJdInput && (
-              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
-                  <textarea placeholder="Paste job description..." rows={4} value={jdText} onChange={e=>setJdText(e.target.value)} style={{width:'100%',marginBottom:6}}/>
-                  <ActionButton label="Analyze" primary onClick={handleJdSubmit}/>
-                </div>
-              </div>
-            )}
-
-            {/* TEXT INPUT (discovery Qs + free search) */}
-            {showTextInput && !showUpload && !showPaste && !showJdInput && (
-              <div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-                <div style={{maxWidth:'var(--max-conversation)',margin:'0 auto',display:'flex',gap:8}}>
-                  <input ref={inputRef} type="text" placeholder={persona==='joshua'?'Your answer...':'Apna jawab likho...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&handleSend()} style={{flex:1,borderRadius:'var(--radius-md)',padding:'11px 16px'}}/>
-                  <button onClick={handleSend} disabled={!input.trim()||busy} style={{width:40,height:40,borderRadius:'var(--radius-md)',background:'var(--color-primary)',border:'none',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||busy)?.4:1,cursor:'pointer'}}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  </button>
-                </div>
-              </div>
-            )}
+          <div style={{flex:1,overflowY:'auto',padding:'16px 0',display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{maxWidth:'var(--max-conversation)',width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
+              {log.map((m,i)=>{
+                if(m.type==='assistant')return <Bubble key={i} type="assistant" persona={persona}>{m.content}</Bubble>;
+                if(m.type==='user')return <Bubble key={i} type="user">{m.content}</Bubble>;
+                if(m.type==='status')return <Bubble key={i} type="status">{m.content}</Bubble>;
+                if(m.type==='fit')return <FitCard key={i} data={m.fitData}/>;
+                if(m.type==='jobs')return <JobList key={i} jobs={m.jobs}/>;
+                return null;
+              })}
+              {statusText&&<Bubble type="status"><div style={{width:10,height:10,border:'2px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>{statusText}</Bubble>}
+              {busy&&!statusText&&<Dots persona={persona}/>}
+              {actions&&<div className="msg-in" style={{padding:'0 16px 0 52px',display:'flex',gap:8,flexWrap:'wrap'}}>{actions.map((a,i)=><Btn key={i} label={a.label} onClick={()=>handleAction(a.action)} primary={i===0}/>)}</div>}
+              <div ref={bottomRef}/>
+            </div>
           </div>
-        );
+
+          {showUpload&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+            <div onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-primary)';}} onDragLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'} onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);}} style={{border:'2px dashed var(--color-border)',borderRadius:'var(--radius-md)',padding:16,textAlign:'center',cursor:'pointer'}}><div style={{fontSize:13,fontWeight:500,marginBottom:3}}>Drop your resume here</div><div style={{fontSize:11,color:'var(--color-text-muted)'}}>PDF, DOCX, or TXT</div></div>
+            <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])}/>
+            <div style={{textAlign:'center',marginTop:6}}><button onClick={()=>{setShowUpload(false);setShowPaste(true);}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>or paste text</button></div>
+          </div></div>}
+
+          {showPaste&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+            <textarea placeholder="Paste resume text..." rows={5} style={{width:'100%',marginBottom:6}} id="rp"/>
+            <Btn label="Submit" primary onClick={()=>{const t=document.getElementById('rp').value.trim();if(t.length>20){setResumeText(t);setShowPaste(false);supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true});add('status','Resume — '+t.split(/\s+/).length+' words');setTimeout(()=>{add('assistant',v.transition_jd);setShowJd(true);},400);}}}/>
+          </div></div>}
+
+          {showJd&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+            <textarea placeholder="Paste job description..." rows={4} value={jdText} onChange={e=>setJdText(e.target.value)} style={{width:'100%',marginBottom:6}}/>
+            <Btn label="Analyze" primary onClick={analyze}/>
+          </div></div>}
+
+          {showText&&!showUpload&&!showPaste&&!showJd&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto',display:'flex',gap:8}}>
+            <input ref={inputRef} type="text" placeholder={persona==='joshua'?'Your answer...':'Jawab likho...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} style={{flex:1,borderRadius:'var(--radius-md)',padding:'11px 16px'}}/>
+            <button onClick={send} disabled={!input.trim()||busy} style={{width:40,height:40,borderRadius:'var(--radius-md)',background:'var(--color-primary)',border:'none',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||busy)?.4:1,cursor:'pointer'}}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
+          </div></div>}
+        </div>;
       }
 
 
       // ═══ APP ═══
       function App(){
-        const[session,setSession]=useState(null);const[userProfile,setUserProfile]=useState(null);const[loading,setLoading]=useState(true);const[activeChat,setActiveChat]=useState(null);
-        useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)loadProfile(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)loadProfile(s.user);else{setUserProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);
-        const loadProfile=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setUserProfile(data);setLoading(false);};
-        const handleSignOut=async()=>{await supabase.auth.signOut();setSession(null);setUserProfile(null);setActiveChat(null);};
-        const handleLang=async(lang)=>{if(!session)return;const{data}=await supabase.from('users').update({language_pref:lang}).eq('id',session.user.id).select().single();setUserProfile(data);};
+        const[session,setSession]=useState(null);const[profile,setProfile]=useState(null);const[loading,setLoading]=useState(true);
+        const[character,setCharacter]=useState(null);const[persona,setPersona]=useState(null);
 
-        if(loading)return(<div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:10}}><div style={{width:20,height:20,border:'3px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{color:'var(--color-text-muted)',fontSize:14}}>Loading...</span></div>);
-        if(!session)return <AuthScreen/>;
-        if(userProfile&&!userProfile.language_pref)return <LanguageSelect onSelect={handleLang}/>;
-        if(activeChat)return <ConversationPage user={session.user} initialPersona={activeChat} onSignOut={handleSignOut} onBack={()=>setActiveChat(null)}/>;
-        return <SessionHub user={session.user} userProfile={userProfile} onStartChat={setActiveChat} onSignOut={handleSignOut}/>;
+        useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)load(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)load(s.user);else{setProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);
+        const load=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setProfile(data);setLoading(false);};
+        const signOut=async()=>{await supabase.auth.signOut();setSession(null);setProfile(null);setCharacter(null);setPersona(null);};
+
+        if(loading)return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:10}}><div style={{width:20,height:20,border:'3px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{color:'var(--color-text-muted)',fontSize:14}}>Loading...</span></div>;
+        if(!session) return <AuthScreen/>;
+        if(character && persona) return <ConvoPage user={session.user} character={character} persona={persona} onBack={()=>{setCharacter(null);setPersona(null);}}/>;
+        if(character) return <PersonaSelect character={character} onSelect={setPersona}/>;
+        return <CharacterSelect onSelect={setCharacter}/>;
       }
 
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
