@@ -147,515 +147,399 @@
     <script type="text/babel">
       const {useState,useEffect,useRef} = React;
 
-      // ═══ CONFIG ═══
       const SUPABASE_URL = 'https://syrpitwhpsajthojpbcg.supabase.co';
       const SUPABASE_ANON_KEY = 'sb_publishable_39eUMs3_hVddJhQozmtkxw_mBq1OOiS';
       const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-      // ═══ 7 CHARACTER STORIES ═══
-      const CHARACTERS = [
+      // ═══ CHARACTERS (no pack labels visible — routing is internal) ═══
+      const CHARS = [
         { id:'ananya', name:'Ananya', city:'Pune', type:'ghost', pack:'fresher',
+          hook:"Starting from zero — need direction first",
           story:"I graduated last year but never really started looking. No resume, no LinkedIn, honestly not sure what I'm even qualified for.",
-          hook:"Starting from zero — need direction before anything else" },
+          color:'#8B5E83' },
         { id:'rohan', name:'Rohan', city:'Bengaluru', type:'freshgrad', pack:'fresher',
+          hook:"Has raw material, doesn't know how to package it",
           story:"Just finished my degree. I've done a couple of college projects and one internship, but I don't know how to turn that into a real resume.",
-          hook:"Has raw material but doesn't know how to package it" },
+          color:'#5A9D88' },
         { id:'karthik', name:'Karthik', city:'Chennai', type:'drifter', pack:'resume',
+          hook:"Working but unclear on what's next",
           story:"I've been working for 2 years but I'm not excited about my current field. I think I want to switch but I genuinely don't know which direction to go.",
-          hook:"Has experience but unclear on what's next" },
+          color:'#D4813A' },
         { id:'priya', name:'Priya', city:'Mumbai', type:'buried', pack:'resume',
+          hook:"Clear target, outdated resume",
           story:"My resume is from 2 years ago and it's generic. I know what role I want — I just need the resume to actually land interviews.",
-          hook:"Clear target, outdated resume — needs a rebuild" },
+          color:'#5A7738' },
         { id:'vikram', name:'Vikram', city:'Gurugram', type:'bomber', pack:'interview',
+          hook:"Strong on paper, struggling in interviews",
           story:"I'm getting interviews at good companies but keep dropping out in the middle rounds. My resume is fine — it's the interviews I can't crack.",
-          hook:"Strong on paper, struggling in the room" },
+          color:'#4A7A8C' },
         { id:'nisha', name:'Nisha', city:'Hyderabad', type:'switcher', pack:'resume',
-          story:"I'm switching from ops to product. I have 4 years of experience but none of it is in the domain I'm targeting. My resume doesn't translate.",
-          hook:"Experienced professional making a career pivot" },
+          hook:"Making a career pivot — resume doesn't translate",
+          story:"I'm switching from ops to product. I have 4 years of experience but none of it is in the domain I'm targeting.",
+          color:'#C7692A' },
         { id:'meera', name:'Meera', city:'Delhi', type:'stalled', pack:'resume',
-          story:"I've applied to 50+ roles in the last 3 months and I'm barely hearing back. My resume seems fine to me but clearly something isn't working.",
-          hook:"Active applicant, zero callbacks — the problem might not be the resume" },
+          hook:"Applied to 50+ roles, barely hearing back",
+          story:"I've applied to 50+ roles in the last 3 months and I'm barely hearing back. My resume seems fine but clearly something isn't working.",
+          color:'#8B6EA8' },
       ];
 
-      // ═══ CHARACTER-SPECIFIC FOLLOW-UP QUESTIONS (2 per character, app-controlled) ═══
-      const FOLLOW_UPS = {
-        ananya: {
-          joshua: [
-            "What did you study, and was there any part of it you actually enjoyed working on?",
-            "If you had to pick between a structured corporate path and something more startup-ish — gut instinct, which one?"
-          ],
-          adi: [
-            "Kya padha tha, aur usme koi cheez thi jo actually pasand aayi?",
-            "Corporate structured path ya startup wala scene — gut feeling, kya lagta hai?"
-          ]
-        },
-        rohan: {
-          joshua: [
-            "Tell me about that internship — what did you actually build or work on?",
-            "Are you targeting a specific kind of role, or open to seeing what fits your skills?"
-          ],
-          adi: [
-            "Woh internship mein kya kiya tha — actually kya build ya kaam kiya?",
-            "Koi specific role target kar rahe ho ya dekhna chahte ho kya fit hota hai?"
-          ]
-        },
-        karthik: {
-          joshua: [
-            "What's your current role, and what specifically about it isn't working for you?",
-            "When you imagine your ideal workday 2 years from now — what does it look like?"
-          ],
-          adi: [
-            "Abhi kya kar rahe ho, aur exactly kya problem hai current role mein?",
-            "2 saal baad ideal workday kaisa dikhta hai — imagine karo?",
-          ]
-        },
-        priya: {
-          joshua: [
-            "What role are you targeting, and do you have a specific company or JD in mind?",
-            "How many years of experience do you have, and what's been your strongest contribution?"
-          ],
-          adi: [
-            "Kaunsa role target kar rahe ho — koi specific company ya JD hai?",
-            "Kitne saal ka experience hai, aur ab tak sabse strong contribution kya raha?"
-          ]
-        },
-        vikram: {
-          joshua: [
-            "Which round are you typically failing at — phone screens, technicals, or final rounds?",
-            "Can you describe the last interview that went badly — what happened?"
-          ],
-          adi: [
-            "Kaunse round mein usually fail hote ho — phone screen, technical, ya final?",
-            "Last interview jo kharab gaya — kya hua tha exactly?"
-          ]
-        },
-        nisha: {
-          joshua: [
-            "What's your current domain, and what specifically are you switching to?",
-            "Is there anything from your current work that might translate — leadership, process, data?"
-          ],
-          adi: [
-            "Abhi kaunsa domain hai aur kis mein jaana chahte ho?",
-            "Current kaam se kuch translate hota hai kya — leadership, process, data?"
-          ]
-        },
-        meera: {
-          joshua: [
-            "How are you finding and applying to these roles — job boards, referrals, LinkedIn?",
-            "When you look at the JDs you're applying to, do they match your experience level or are you stretching?"
-          ],
-          adi: [
-            "Roles kaise dhundh rahe ho — job boards, referrals, LinkedIn?",
-            "Jo JDs mein apply kar rahe ho, woh tumhare experience level ke hain ya stretch kar rahe ho?"
-          ]
-        },
+      // ═══ FOLLOW-UP Qs (2 per character, per persona) ═══
+      const FUQ = {
+        ananya:{ joshua:["What did you study, and was there any part of it you actually enjoyed?","If you had to pick — structured corporate path or something more startup-ish?"], adi:["Kya padha tha, aur usme koi cheez thi jo pasand aayi?","Corporate structured ya startup wala scene — gut feeling kya hai?"]},
+        rohan:{ joshua:["Tell me about that internship — what did you actually work on?","Are you targeting a specific role, or open to seeing what fits?"], adi:["Internship mein kya kaam kiya tha?","Koi specific role soch rahe ho ya open ho?"]},
+        karthik:{ joshua:["What's your current role, and what about it isn't working?","When you imagine your ideal workday 2 years out — what does it look like?"], adi:["Abhi kya kar rahe ho, aur exact problem kya hai?","2 saal baad ideal workday kaisa dikhta hai?"]},
+        priya:{ joshua:["What role are you targeting — do you have a specific company or JD?","How many years of experience, and what's been your strongest contribution?"], adi:["Kaunsa role target kar rahe ho — company ya JD hai specific?","Kitne saal ka experience, aur strongest contribution kya raha?"]},
+        vikram:{ joshua:["Which round are you typically failing — screens, technicals, or finals?","Describe the last interview that went badly — what happened?"], adi:["Kaunse round mein usually fail ho — screen, technical, ya final?","Last kharab interview — kya hua tha?"]},
+        nisha:{ joshua:["What's your current domain, and what are you switching to?","Is there anything from your current work that translates — leadership, process, data?"], adi:["Abhi kaunsa domain hai aur kis mein jaana chahte ho?","Current kaam se kuch translate hota hai — leadership, process, data?"]},
+        meera:{ joshua:["How are you finding these roles — job boards, referrals, LinkedIn?","When you look at the JDs, do they match your level or are you stretching?"], adi:["Roles kaise dhundh rahe ho — boards, referrals, LinkedIn?","Jo JDs mein apply karte ho, level match hai ya stretch?"]},
       };
 
-      // ═══ VOICE TEMPLATES ═══
-      const VOICE = {
-        joshua: {
-          confirm: (char) => `That sounds like where you are. ${char.type === 'bomber' ? "The good news — your resume is probably not the problem. Let's figure out what is." : char.type === 'ghost' || char.type === 'freshgrad' ? "No pressure — let's figure out what you're working with first." : "I've seen this exact situation many times. A couple of quick questions and I'll know exactly how to help."}`,
-          transition_resume: "Good — I've got enough to work with. Drop your resume here and I'll start scoring it.",
-          transition_jd: "Now paste the job description you're targeting. If you don't have one specific JD, describe the role you want.",
-          transition_search: "Let me find some roles that fit what you've described.",
-          transition_fresher: "Let me build something from what you've told me.",
-        },
-        adi: {
-          confirm: (char) => `Sahi pakde ho. ${char.type === 'bomber' ? "Ek acchi baat — resume mein problem nahi hoga shayad. Chalte hain dekhte hain kya ho raha hai." : char.type === 'ghost' || char.type === 'freshgrad' ? "Koi tension nahi — pehle dekhte hain kya hai hamare paas." : "Yeh situation bahut dekhi hai. Do-teen cheezein puchta hoon, phir exactly pata chalega kya karna hai."}`,
-          transition_resume: "Theek hai, enough context mil gaya. Resume daal do, scoring shuru karta hoon.",
-          transition_jd: "Ab JD paste karo — jo role target kar rahe ho uska. Specific JD nahi hai toh role describe kar do.",
-          transition_search: "Chal dekhte hain kya roles milte hain tumhare liye.",
-          transition_fresher: "Jo bataya hai usse kuch build karta hoon.",
-        }
+      // ═══ OPENING MESSAGES (context-aware, not generic) ═══
+      const OPENERS = {
+        ananya:{ joshua:(n)=>`Hey ${n}. You're in Ananya's shoes — starting fresh, no resume yet, figuring out direction. That's completely workable. Let me understand a bit more about you.`, adi:(n)=>`Hey ${n}. Ananya jaisi situation hai — abhi starting point pe ho, direction dhundh rahe ho. Bilkul theek hai, chal samajhte hain.`},
+        rohan:{ joshua:(n)=>`Hey ${n}. You've got projects and an internship but no proper resume yet — that's Rohan's situation exactly. The raw material exists, we just need to shape it. Quick question first.`, adi:(n)=>`Hey ${n}. Projects aur internship hai but resume nahi — exactly Rohan wali situation. Material hai, bas shape dena hai. Ek question pehle.`},
+        karthik:{ joshua:(n)=>`Hey ${n}. Two years in, not excited about the current path, not sure what's next — that's Karthik's spot. Before we touch any resume, let's get clear on direction.`, adi:(n)=>`Hey ${n}. Do saal ho gaye, current field mein excitement nahi hai — Karthik wali situation. Resume se pehle direction clear karte hain.`},
+        priya:{ joshua:(n)=>`Hey ${n}. You know what you want but the resume isn't doing its job — Priya's exact situation. I've fixed hundreds of these. A couple of things I need to know first.`, adi:(n)=>`Hey ${n}. Role clear hai but resume kaam nahi kar raha — Priya jaisi situation. Aise bahut fix kiye hain. Do cheezein puchta hoon pehle.`},
+        vikram:{ joshua:(n)=>`Hey ${n}. Getting interviews but dropping out mid-rounds — that's Vikram's problem and it's usually not about the resume. Let me figure out exactly where things are breaking.`, adi:(n)=>`Hey ${n}. Interviews mil rahe hain but middle rounds mein fail — Vikram wali problem. Resume problem nahi hoga shayad. Dekhte hain kahan break ho raha hai.`},
+        nisha:{ joshua:(n)=>`Hey ${n}. Career switch with 4 years of experience that doesn't map to the new domain — Nisha's challenge. The translation is doable but I need to understand both sides first.`, adi:(n)=>`Hey ${n}. Domain switch kar rahe ho — experience hai but naye field mein translate nahi ho raha. Nisha wali challenge. Dono sides samajhna padega.`},
+        meera:{ joshua:(n)=>`Hey ${n}. 50+ applications, barely hearing back — Meera's frustration. The resume might actually be fine; the problem is often targeting. Let me diagnose.`, adi:(n)=>`Hey ${n}. 50+ applications, koi response nahi — Meera jaisi frustration. Resume theek bhi ho sakta hai, problem targeting mein hogi. Diagnose karte hain.`},
       };
 
-      // ═══ API + ENGINE (carried forward) ═══
+      // ═══ API LAYER ═══
       let sessionCost = 0;
+      async function callLLM(o){const r=await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:o.system||'',messages:o.messages,temperature:o.temperature||0.4,max_tokens:o.max_tokens||200,model:o.model||'haiku'})});const d=await r.json();if(!r.ok)throw new Error(d.error||'err');const t=(d.content||[]).find(c=>c.type==='text');return{text:t?t.text:'',cost:d.cost||{}};}
+      async function callSearch(q){try{const r=await fetch("/.netlify/functions/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({queries:q})});const d=await r.json();return d.searchAvailable?d.results:null;}catch{return null;}}
+      function xJSON(r){const t=(r||'').trim().replace(/```json?\s*/gi,'').replace(/```\s*/g,'');const s=t.indexOf('{'),e=t.lastIndexOf('}');if(s===-1||e<=s)throw new Error('No JSON');return JSON.parse(t.slice(s,e+1));}
+      const GFB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
+      async function callGroq(p,o={}){const{temperature:tp=0.2,max_tokens:mt=4096,model:md='openai/gpt-oss-120b',retries:rt=2,_fb=false}=o;const fp=p+'\nOutput ONLY valid JSON.';for(let i=0;i<=rt;i++){const c=new AbortController();const t=setTimeout(()=>c.abort(),25000);try{const r=await fetch("/.netlify/functions/transform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fp,temperature:tp,max_tokens:mt,model:md}),signal:c.signal});clearTimeout(t);const tx=await r.text();let d;try{d=JSON.parse(tx)}catch{d={error:tx}};if(!r.ok)throw new Error(d?.error||'err');const f=(d.content||[]).find(c=>c.type==="text");return f?f.text:"";}catch(e){clearTimeout(t);if(i===rt){const fb=GFB[md];if(fb&&!_fb)return callGroq(p,{...o,model:fb,retries:1,_fb:true});throw e;}await new Promise(r=>setTimeout(r,1500*(i+1)));}}}
+      function valCo(d){d.techStack=d.techStack||[];d.coreValues=d.coreValues||[];d.culturalTone=d.culturalTone||"professional";d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;}
+      function valJD(d){d.mandatorySkills=d.mandatorySkills||[];d.actionVerbs=d.actionVerbs||["Led","Built","Designed"];d.niceToHave=d.niceToHave||[];d.responsibilityPatterns=d.responsibilityPatterns||[];return d;}
+      function dualScore(bd){if(!bd)return{a:0,h:0,cl:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const a=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const h=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{a,h,cl:(a>=75&&h>=70)?'Cleared':(a<50||h<45)?'Grounded':'Conditional'};}
+      function fmtSearch(sr){if(!sr)return'';let c='';Object.entries(sr).forEach(([q,items])=>{c+=`"${q}":\n`;items.forEach(r=>{c+=r.title+' - '+r.snippet+'\n';});});return c;}
+      async function parseFile(f){const x=f.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(x))throw new Error('Use PDF, DOCX, or TXT.');let t='';if(x==='txt')t=await f.text();else if(x==='docx'||x==='doc'){const a=await f.arrayBuffer();t=(await mammoth.extractRawText({arrayBuffer:a})).value;}else{const a=await f.arrayBuffer();const p=await pdfjsLib.getDocument({data:a}).promise;const pg=[];for(let i=1;i<=p.numPages;i++){const g=await p.getPage(i);const c=await g.getTextContent();pg.push(c.items.map(i=>i.str).join(' '));}t=pg.join('\n\n');}t=t.trim();if(t.length<20)throw new Error('Could not extract text.');return t;}
 
-      async function callLLM({system,messages,temperature=0.4,max_tokens=200,model='haiku'}) {
-        const res = await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system,messages,temperature,max_tokens,model})});
-        const data = await res.json(); if(!res.ok) throw new Error(data.error||'API error');
-        const tb=(data.content||[]).find(c=>c.type==='text');
-        return {text:tb?tb.text:'',cost:data.cost||{}};
+      // ═══ UI ATOMS ═══
+      function Logo({size=20}){const b=Math.round(size*0.8);return <div style={{display:'flex',alignItems:'center'}}><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>r</span><svg width={b} height={b} viewBox="0 0 20 20" style={{margin:'0 -0.5px',position:'relative',top:Math.round(b/18),flexShrink:0}}><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill="var(--color-primary-light)" stroke="var(--color-primary)" strokeWidth="1.1" strokeLinejoin="round"/><circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)"/><circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)"/></svg><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>lecrft</span></div>;}
+
+      function CIcon({char,size=28}){return <svg width={size} height={size} viewBox="0 0 20 20"><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill={char.color+'22'} stroke={char.color} strokeWidth="1" strokeLinejoin="round"/><circle cx="10" cy="10" r="3" fill={char.color+'44'}/><text x="10" y="10" textAnchor="middle" dominantBaseline="central" style={{fontSize:7,fontWeight:700,fill:char.color,fontFamily:'var(--font-wordmark)'}}>{char.name[0]}</text></svg>;}
+
+      function Av({p,size=32}){const j=p==='joshua';return <div style={{width:size,height:size,borderRadius:'50%',background:j?'var(--color-joshua)':'var(--color-adi)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-wordmark)',fontSize:Math.round(size*.42),fontWeight:800,flexShrink:0}}>{j?'J':'A'}</div>;}
+
+      function Msg({type,persona,children}){
+        if(type==='user')return <div className="msg-in" style={{display:'flex',justifyContent:'flex-end',padding:'0 16px'}}><div style={{background:'var(--color-primary-muted)',color:'#fff',borderRadius:'14px 4px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55,maxWidth:'78%'}}>{children}</div></div>;
+        if(type==='status')return <div className="msg-in" style={{display:'flex',justifyContent:'center',padding:'4px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--color-text-muted)',fontWeight:500,background:'var(--color-elevated)',border:'1px solid var(--color-border-light)',borderRadius:'var(--radius-full)',padding:'4px 14px'}}>{children}</div></div>;
+        return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px',maxWidth:'88%'}}><Av p={persona} size={28}/><div style={{background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55}}>{children}</div></div>;
       }
 
-      async function callSearch(queries) {
-        try{const res=await fetch("/.netlify/functions/search",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({queries})});const data=await res.json();return data.searchAvailable?data.results:null;}catch{return null;}
-      }
+      function Dots({p}){return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px'}}><Av p={p} size={28}/><div style={{display:'flex',gap:5,padding:'12px 16px',background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px'}}>{[0,.15,.3].map(d=><div key={d} style={{width:7,height:7,borderRadius:'50%',background:'var(--color-text-muted)',animation:`dotPulse 1.2s ease-in-out ${d}s infinite`}}/>)}</div></div>;}
 
-      function extractJsonObject(raw){const t=(raw||"").trim().replace(/```json\s*/gi,"").replace(/```\s*/g,"");const s=t.indexOf("{"),e=t.lastIndexOf("}");if(s===-1||e<=s)throw new Error("No JSON");return JSON.parse(t.slice(s,e+1));}
+      function Btn({label,onClick,primary,small}){return <button onClick={onClick} style={{padding:small?'6px 14px':'8px 18px',borderRadius:'var(--radius-md)',background:primary?'var(--color-primary)':'var(--color-surface)',color:primary?'#fff':'var(--color-text)',border:primary?'none':'1px solid var(--color-border)',fontSize:small?12:13,fontWeight:600,cursor:'pointer'}}>{label}</button>;}
 
-      const GROQ_FB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
-      async function callGroq(prompt,opts={}){const{temperature=0.2,max_tokens=4096,model='openai/gpt-oss-120b',retries=2,_fb=false}=opts;const fp=prompt+'\n\nOutput ONLY valid JSON.';for(let i=0;i<=retries;i++){const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),25000);try{const res=await fetch("/.netlify/functions/transform",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:fp,temperature,max_tokens,model}),signal:ctrl.signal});clearTimeout(tid);const text=await res.text();let data;try{data=JSON.parse(text);}catch{data={error:text};}if(!res.ok)throw new Error(data?.error||'err');const f=(data.content||[]).find(c=>c.type==="text");return f?f.text:"";}catch(err){clearTimeout(tid);if(i===retries){const fb=GROQ_FB[model];if(fb&&!_fb)return callGroq(prompt,{...opts,model:fb,retries:1,_fb:true});throw err;}await new Promise(r=>setTimeout(r,1500*(i+1)));}}}
-
-      function validateCompanyData(d){d.techStack=d.techStack||[];d.coreValues=d.coreValues||[];d.culturalTone=d.culturalTone||"professional";d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;}
-      function validateJDData(d){d.mandatorySkills=d.mandatorySkills||[];d.actionVerbs=d.actionVerbs||["Led","Built","Designed"];d.niceToHave=d.niceToHave||[];d.responsibilityPatterns=d.responsibilityPatterns||[];return d;}
-      function computeDualScores(bd){if(!bd)return{atsScore:0,hmScore:0,clearance:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const a=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const h=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{atsScore:a,hmScore:h,clearance:(a>=75&&h>=70)?'Cleared':(a<50||h<45)?'Grounded':'Conditional'};}
-      function formatSearchContext(sr){if(!sr)return '';let c='';Object.entries(sr).forEach(([q,items])=>{c+=`"${q}":\n`;items.forEach((r,i)=>{c+=`${r.title} - ${r.snippet}\n`;});});return c;}
-
-      async function parseResumeFile(file){const ext=file.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(ext))throw new Error('Use PDF, DOCX, or TXT.');let text='';if(ext==='txt')text=await file.text();else if(ext==='docx'||ext==='doc'){const ab=await file.arrayBuffer();text=(await mammoth.extractRawText({arrayBuffer:ab})).value;}else if(ext==='pdf'){const ab=await file.arrayBuffer();const pdf=await pdfjsLib.getDocument({data:ab}).promise;const p=[];for(let i=1;i<=pdf.numPages;i++){const pg=await pdf.getPage(i);const ct=await pg.getTextContent();p.push(ct.items.map(it=>it.str).join(' '));}text=p.join('\n\n');}text=text.trim();if(text.length<20)throw new Error('Could not extract text.');return text;}
-
-
-      // ═══ UI COMPONENTS ═══
-
-      function Logo({size=20}){const b=Math.round(size*0.8);return(<div style={{display:'flex',alignItems:'center'}}><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>r</span><svg width={b} height={b} viewBox="0 0 20 20" style={{margin:'0 -0.5px',position:'relative',top:Math.round(b/18),flexShrink:0}}><path d="M3 10C3 6.134 6.134 3 10 3C13.866 3 17 6.134 17 10C17 13.866 13.866 17 10 17H4.5C3.672 17 3 16.328 3 15.5V10Z" fill="var(--color-primary-light)" stroke="var(--color-primary)" strokeWidth="1.1" strokeLinejoin="round"/><circle className="logo-dj" cx="8" cy="10" r="1.6" fill="var(--color-joshua)"/><circle className="logo-da" cx="12.5" cy="10" r="1.6" fill="var(--color-adi)"/></svg><span style={{fontFamily:'var(--font-wordmark)',fontWeight:800,fontSize:size,letterSpacing:'-0.5px',color:'var(--color-text)',lineHeight:1}}>lecrft</span></div>);}
-
-      function Avatar({persona,size=32}){const j=persona==='joshua';return(<div style={{width:size,height:size,borderRadius:'50%',background:j?'var(--color-joshua)':'var(--color-adi)',color:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'var(--font-wordmark)',fontSize:Math.round(size*.42),fontWeight:800,flexShrink:0}}>{j?'J':'A'}</div>);}
-
-      function Bubble({type,persona,children}){
-        if(type==='user') return <div className="msg-in" style={{display:'flex',justifyContent:'flex-end',padding:'0 16px'}}><div style={{background:'var(--color-primary-muted)',color:'#fff',borderRadius:'14px 4px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55,maxWidth:'78%'}}>{children}</div></div>;
-        if(type==='status') return <div className="msg-in" style={{display:'flex',justifyContent:'center',padding:'4px 16px'}}><div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'var(--color-text-muted)',fontWeight:500,background:'var(--color-elevated)',border:'1px solid var(--color-border-light)',borderRadius:'var(--radius-full)',padding:'4px 14px'}}>{children}</div></div>;
-        return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px',maxWidth:'88%'}}><Avatar persona={persona} size={28}/><div style={{background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px',padding:'10px 14px',fontSize:14,lineHeight:1.55}}>{children}</div></div>;
-      }
-
-      function Dots({persona}){return <div className="msg-in" style={{display:'flex',gap:8,padding:'0 16px'}}><Avatar persona={persona} size={28}/><div style={{display:'flex',gap:5,padding:'12px 16px',background:'var(--color-elevated)',border:'1px solid var(--color-border)',borderRadius:'4px 14px 14px 14px'}}>{[0,.15,.3].map(d=><div key={d} style={{width:7,height:7,borderRadius:'50%',background:'var(--color-text-muted)',animation:`dotPulse 1.2s ease-in-out ${d}s infinite`}}/>)}</div></div>;}
-
-      function Btn({label,onClick,primary}){return <button onClick={onClick} style={{padding:'8px 18px',borderRadius:'var(--radius-md)',background:primary?'var(--color-primary)':'var(--color-surface)',color:primary?'#fff':'var(--color-text)',border:primary?'none':'1px solid var(--color-border)',fontSize:13,fontWeight:600,cursor:'pointer'}}>{label}</button>;}
-
-      function FitCard({data}){if(!data)return null;const{score,atsScore,hmScore,clearance,gaps,strengths,categories,potential}=data;const cl=clearance==='Cleared'?'var(--color-success)':clearance==='Grounded'?'var(--color-danger)':'var(--color-warning)';
+      function FitCard({d}){if(!d)return null;const cl=d.clearance==='Cleared'?'var(--color-success)':d.clearance==='Grounded'?'var(--color-danger)':'var(--color-warning)';
         return <div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-primary)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-primary)'}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-primary)'}}>FIT SNAPSHOT</span><div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:'var(--color-primary)'}}>{score}</span><span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:'var(--radius-full)',background:cl+'18',color:cl}}>{clearance}</span></div></div>
-          <div style={{display:'flex',gap:5,marginBottom:10,flexWrap:'wrap'}}>{[['ATS',atsScore],['HM',hmScore]].map(([l,v])=><div key={l} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:9,color:'var(--color-text-muted)'}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:600,color:v>=65?'var(--color-success)':'var(--color-warning)'}}>{v}</div></div>)}</div>
-          {gaps&&gaps.length>0&&<div style={{background:'var(--color-accent-light)',borderRadius:'var(--radius-sm)',padding:8,marginBottom:6}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-accent)',marginBottom:3}}>GAPS</div>{gaps.slice(0,3).map((g,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{g.item||g} — {g.reason||''}</div>)}</div>}
-          {strengths&&strengths.length>0&&<div style={{background:'var(--color-primary-light)',borderRadius:'var(--radius-sm)',padding:8}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-primary)',marginBottom:3}}>STRENGTHS</div>{(Array.isArray(strengths)?strengths:[strengths]).slice(0,3).map((s,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{typeof s==='string'?s:s.item||''}</div>)}</div>}
-          {potential&&<div style={{marginTop:8,fontSize:11,color:'var(--color-text-muted)'}}>Potential after optimization: <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--color-primary)'}}>{potential}</span></div>}
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}><span style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-primary)'}}>FIT SNAPSHOT</span><div style={{display:'flex',alignItems:'center',gap:8}}><span style={{fontFamily:'var(--font-mono)',fontSize:22,fontWeight:600,color:'var(--color-primary)'}}>{d.score}</span><span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:'var(--radius-full)',background:cl+'18',color:cl}}>{d.clearance}</span></div></div>
+          <div style={{display:'flex',gap:5,marginBottom:10,flexWrap:'wrap'}}>{[['ATS',d.atsScore],['HM',d.hmScore]].map(([l,v])=><div key={l} style={{flex:'1 1 50px',textAlign:'center',padding:5,background:'var(--color-elevated)',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border-light)'}}><div style={{fontSize:9,color:'var(--color-text-muted)'}}>{l}</div><div style={{fontFamily:'var(--font-mono)',fontSize:14,fontWeight:600,color:v>=65?'var(--color-success)':'var(--color-warning)'}}>{v}</div></div>)}</div>
+          {d.gaps&&d.gaps.length>0&&<div style={{background:'var(--color-accent-light)',borderRadius:'var(--radius-sm)',padding:8,marginBottom:6}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-accent)',marginBottom:3}}>GAPS</div>{d.gaps.slice(0,3).map((g,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{g.item||g} — {g.reason||''}</div>)}</div>}
+          {d.strengths&&d.strengths.length>0&&<div style={{background:'var(--color-primary-light)',borderRadius:'var(--radius-sm)',padding:8}}><div style={{fontSize:9,fontWeight:700,color:'var(--color-primary)',marginBottom:3}}>STRENGTHS</div>{(Array.isArray(d.strengths)?d.strengths:[d.strengths]).slice(0,3).map((s,i)=><div key={i} style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:1}}>{typeof s==='string'?s:s.item||''}</div>)}</div>}
+          {d.potential&&<div style={{marginTop:8,fontSize:11,color:'var(--color-text-muted)'}}>Potential: <span style={{fontFamily:'var(--font-mono)',fontWeight:600,color:'var(--color-primary)'}}>{d.potential}</span></div>}
         </div></div>;
       }
-
-      function JobList({jobs}){if(!jobs||!jobs.length)return null;
-        return <div className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-accent)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-accent)'}}>
-          <div style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-accent)',marginBottom:10}}>MATCHING ROLES</div>
-          {jobs.map((j,i)=><div key={i} style={{marginBottom:i<jobs.length-1?10:0,paddingBottom:i<jobs.length-1?10:0,borderBottom:i<jobs.length-1?'1px solid var(--color-border-light)':'none'}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{j.title}</div>{j.snippet&&<div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>{j.snippet}</div>}<a href={j.url} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--color-primary)',textDecoration:'none'}}>{j.url.length>60?j.url.slice(0,60)+'...':j.url}</a></div>)}
-        </div></div>;
-      }
-
 
       // ═══ AUTH ═══
-      function AuthScreen(){
-        const[m,setM]=useState('login');const[e,setE]=useState('');const[p,setP]=useState('');const[l,setL]=useState(false);const[err,setErr]=useState('');
-        const go=async(ev)=>{ev.preventDefault();setL(true);setErr('');try{let r;if(m==='login')r=await supabase.auth.signInWithPassword({email:e,password:p});else r=await supabase.auth.signUp({email:e,password:p});if(r.error)throw r.error;}catch(er){setErr(er.message);}setL(false);};
-        return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
-          <Logo size={36}/><div style={{fontSize:13,color:'var(--color-text-muted)',marginTop:8,marginBottom:32,fontStyle:'italic'}}>Your career, in conversation.</div>
-          <div style={{width:'100%',maxWidth:360,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:28}}>
-            <div style={{fontSize:18,fontWeight:600,marginBottom:4}}>{m==='login'?'Welcome back':'Create account'}</div>
-            <div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:20}}>{m==='login'?'Joshua and Adi are ready.':'Start your career conversation.'}</div>
-            <button onClick={()=>supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}})} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border)',background:'var(--color-surface)',color:'var(--color-text)',fontSize:14,fontWeight:500,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16,cursor:'pointer'}}>
-              <svg width="18" height="18" viewBox="0 0 18 18"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/><path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.997 8.997 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>Continue with Google</button>
-            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}><div style={{flex:1,height:1,background:'var(--color-border)'}}/><span style={{fontSize:11,color:'var(--color-text-muted)'}}>or</span><div style={{flex:1,height:1,background:'var(--color-border)'}}/></div>
-            <form onSubmit={go}><input type="email" placeholder="Email" value={e} onChange={ev=>setE(ev.target.value)} required style={{width:'100%',marginBottom:10}}/><input type="password" placeholder="Password" value={p} onChange={ev=>setP(ev.target.value)} required minLength={6} style={{width:'100%',marginBottom:14}}/>{err&&<div style={{fontSize:12,color:'var(--color-danger)',marginBottom:10}}>{err}</div>}<button type="submit" disabled={l} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',background:'var(--color-primary)',color:'#fff',border:'none',fontSize:14,fontWeight:600,opacity:l?.6:1,cursor:'pointer'}}>{l?'...':(m==='login'?'Sign in':'Sign up')}</button></form>
-            <div style={{textAlign:'center',marginTop:14,fontSize:13,color:'var(--color-text-muted)'}}>{m==='login'?"No account?":"Have account?"}<button onClick={()=>{setM(m==='login'?'signup':'login');setErr('');}} style={{background:'none',border:'none',color:'var(--color-primary)',fontWeight:600,fontSize:13,marginLeft:4,cursor:'pointer'}}>{m==='login'?'Sign up':'Sign in'}</button></div>
-          </div>
-        </div>;
+      function Auth(){const[m,setM]=useState('login');const[e,setE]=useState('');const[p,setP]=useState('');const[l,setL]=useState(false);const[err,setErr]=useState('');const go=async(ev)=>{ev.preventDefault();setL(true);setErr('');try{let r;if(m==='login')r=await supabase.auth.signInWithPassword({email:e,password:p});else r=await supabase.auth.signUp({email:e,password:p});if(r.error)throw r.error;}catch(er){setErr(er.message);}setL(false);};
+        return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}><Logo size={36}/><div style={{fontSize:13,color:'var(--color-text-muted)',marginTop:8,marginBottom:32,fontStyle:'italic'}}>Your career, in conversation.</div><div style={{width:'100%',maxWidth:360,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:28}}><div style={{fontSize:18,fontWeight:600,marginBottom:4}}>{m==='login'?'Welcome back':'Create account'}</div><div style={{fontSize:13,color:'var(--color-text-muted)',marginBottom:20}}>{m==='login'?'Joshua and Adi are ready.':'Start your career conversation.'}</div><button onClick={()=>supabase.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.origin}})} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',border:'1px solid var(--color-border)',background:'var(--color-surface)',color:'var(--color-text)',fontSize:14,fontWeight:500,display:'flex',alignItems:'center',justifyContent:'center',gap:8,marginBottom:16,cursor:'pointer'}}>Continue with Google</button><div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}><div style={{flex:1,height:1,background:'var(--color-border)'}}/><span style={{fontSize:11,color:'var(--color-text-muted)'}}>or</span><div style={{flex:1,height:1,background:'var(--color-border)'}}/></div><form onSubmit={go}><input type="email" placeholder="Email" value={e} onChange={ev=>setE(ev.target.value)} required style={{width:'100%',marginBottom:10}}/><input type="password" placeholder="Password" value={p} onChange={ev=>setP(ev.target.value)} required minLength={6} style={{width:'100%',marginBottom:14}}/>{err&&<div style={{fontSize:12,color:'var(--color-danger)',marginBottom:10}}>{err}</div>}<button type="submit" disabled={l} style={{width:'100%',padding:'10px 0',borderRadius:'var(--radius-sm)',background:'var(--color-primary)',color:'#fff',border:'none',fontSize:14,fontWeight:600,opacity:l?.6:1,cursor:'pointer'}}>{l?'...':(m==='login'?'Sign in':'Sign up')}</button></form><div style={{textAlign:'center',marginTop:14,fontSize:13,color:'var(--color-text-muted)'}}>{m==='login'?"No account?":"Have account?"}<button onClick={()=>{setM(m==='login'?'signup':'login');setErr('');}} style={{background:'none',border:'none',color:'var(--color-primary)',fontWeight:600,fontSize:13,marginLeft:4,cursor:'pointer'}}>{m==='login'?'Sign up':'Sign in'}</button></div></div></div>;
       }
 
-
-      // ═══ CHARACTER SELECT ═══
-      function CharacterSelect({onSelect}){
-        const [theme,setTheme] = useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
+      // ═══ CHARACTER SELECT (Fix 1,2,3: compact cards, icons, no pack labels, expandable) ═══
+      function CharSelect({onPick}){
+        const[expanded,setExpanded]=useState(null);
+        const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
         const toggle=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
-
         return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column'}}>
-          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-            <Logo size={18}/>
-            <button onClick={toggle} style={{width:40,height:24,borderRadius:12,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:18,height:18,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?19:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}/></button>
-          </nav>
-
-          <div style={{flex:1,padding:'32px 16px',maxWidth:640,margin:'0 auto',width:'100%'}}>
-            <div style={{textAlign:'center',marginBottom:32}}>
-              <div style={{fontSize:22,fontWeight:700,marginBottom:6}}>Where are you right now?</div>
-              <div style={{fontSize:14,color:'var(--color-text-secondary)'}}>Pick the person whose situation feels closest to yours.</div>
-            </div>
-
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
-              {CHARACTERS.map(c => (
-                <button key={c.id} onClick={()=>onSelect(c)} style={{
-                  width:'100%', textAlign:'left', cursor:'pointer',
-                  background:'var(--color-surface)', border:'1px solid var(--color-border)',
-                  borderRadius:'var(--radius-lg)', padding:'16px 18px',
-                  transition:'border-color 0.2s',
-                }}
-                onMouseEnter={e=>e.currentTarget.style.borderColor='var(--color-primary)'}
-                onMouseLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'}>
-                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                    <div style={{fontSize:15,fontWeight:600}}>{c.name}, {c.city}</div>
-                    <span style={{fontSize:10,padding:'2px 8px',borderRadius:'var(--radius-full)',background:c.pack==='fresher'?'var(--color-joshua-light)':c.pack==='interview'?'var(--color-accent-light)':'var(--color-primary-light)',color:c.pack==='fresher'?'var(--color-joshua)':c.pack==='interview'?'var(--color-accent)':'var(--color-primary)',fontWeight:600,flexShrink:0}}>{c.pack==='fresher'?'Fresher':c.pack==='interview'?'Interview':'Resume'}</span>
+          <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}><Logo size={18}/><button onClick={toggle} style={{width:40,height:24,borderRadius:12,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:18,height:18,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?19:3,transition:'left .3s',boxShadow:'0 1px 3px rgba(0,0,0,.12)'}}/></button></nav>
+          <div style={{flex:1,padding:'28px 16px',maxWidth:520,margin:'0 auto',width:'100%'}}>
+            <div style={{textAlign:'center',marginBottom:28}}><div style={{fontSize:20,fontWeight:700,marginBottom:4}}>Where are you right now?</div><div style={{fontSize:13,color:'var(--color-text-secondary)'}}>Tap the situation closest to yours.</div></div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {CHARS.map(c=>{
+                const isOpen = expanded===c.id;
+                return <button key={c.id} onClick={()=>isOpen?onPick(c):setExpanded(c.id)} style={{width:'100%',textAlign:'left',cursor:'pointer',background:'var(--color-surface)',border:isOpen?'1.5px solid var(--color-primary)':'1px solid var(--color-border)',borderRadius:'var(--radius-md)',padding:isOpen?'14px 16px':'10px 16px',transition:'all 0.2s'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <CIcon char={c} size={26}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:14,fontWeight:600,color:'var(--color-text)'}}>{c.name}, {c.city}</div>
+                      <div style={{fontSize:12,color:'var(--color-text-secondary)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{c.hook}</div>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 16 16" style={{flexShrink:0,transform:isOpen?'rotate(90deg)':'rotate(0)',transition:'transform 0.2s'}}><path d="M6 4l4 4-4 4" stroke="var(--color-text-muted)" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   </div>
-                  <div style={{fontSize:13,color:'var(--color-text-secondary)',lineHeight:1.5,marginBottom:6}}>"{c.story}"</div>
-                  <div style={{fontSize:11,color:'var(--color-text-muted)'}}>{c.hook}</div>
-                </button>
-              ))}
+                  {isOpen && <div style={{marginTop:10,paddingTop:10,borderTop:'1px solid var(--color-border-light)'}}>
+                    <div style={{fontSize:13,color:'var(--color-text-secondary)',lineHeight:1.55,fontStyle:'italic',marginBottom:10}}>"{c.story}"</div>
+                    <div style={{textAlign:'right'}}><span style={{fontSize:12,fontWeight:600,color:'var(--color-primary)'}}>This is me →</span></div>
+                  </div>}
+                </button>;
+              })}
             </div>
           </div>
         </div>;
       }
 
-
-      // ═══ PERSONA SELECT (after character) ═══
-      function PersonaSelect({character,onSelect}){
+      // ═══ PERSONA SELECT ═══
+      function PersonaPick({char,onPick}){
         return <div style={{minHeight:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:24}}>
-          <Logo size={28}/>
-          <div style={{fontSize:18,fontWeight:600,marginTop:20,marginBottom:6}}>Who do you want in your corner?</div>
-          <div style={{fontSize:13,color:'var(--color-text-secondary)',marginBottom:28,textAlign:'center',maxWidth:340}}>Same intelligence. {character.name}'s situation, your voice.</div>
+          <Logo size={28}/><div style={{fontSize:18,fontWeight:600,marginTop:20,marginBottom:4}}>Who should help you?</div><div style={{fontSize:13,color:'var(--color-text-secondary)',marginBottom:28,textAlign:'center',maxWidth:340}}>Same intelligence, your preferred voice.</div>
           <div style={{display:'flex',gap:14,flexWrap:'wrap',justifyContent:'center'}}>
-            {[{id:'joshua',name:'Joshua',tag:'Direct, strategic, English',color:'var(--color-joshua)',light:'var(--color-joshua-light)'},
-              {id:'adi',name:'Adi',tag:'Friendly, Hinglish, peer energy',color:'var(--color-adi)',light:'var(--color-adi-light)'}
-            ].map(p=><button key={p.id} onClick={()=>onSelect(p.id)} style={{width:240,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',cursor:'pointer'}}>
-              <div style={{background:p.light,padding:'16px 18px',display:'flex',gap:10,alignItems:'center'}}><Avatar persona={p.id} size={40}/><div><div style={{fontWeight:700,fontSize:16,color:p.color}}>{p.name}</div><div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{p.tag}</div></div></div>
-              <div style={{padding:'14px 18px',textAlign:'center'}}><span style={{fontSize:14,fontWeight:600,color:'var(--color-primary)'}}>Start with {p.name}</span></div>
-            </button>)}
+            {[{id:'joshua',name:'Joshua',tag:'Direct, strategic, English',color:'var(--color-joshua)',light:'var(--color-joshua-light)'},{id:'adi',name:'Adi',tag:'Friendly, Hinglish, peer energy',color:'var(--color-adi)',light:'var(--color-adi-light)'}].map(p=><button key={p.id} onClick={()=>onPick(p.id)} style={{width:220,background:'var(--color-surface)',border:'1px solid var(--color-border)',borderRadius:'var(--radius-xl)',padding:0,textAlign:'left',overflow:'hidden',cursor:'pointer'}}><div style={{background:p.light,padding:'14px 16px',display:'flex',gap:10,alignItems:'center'}}><Av p={p.id} size={36}/><div><div style={{fontWeight:700,fontSize:15,color:p.color}}>{p.name}</div><div style={{fontSize:11,color:'var(--color-text-secondary)'}}>{p.tag}</div></div></div><div style={{padding:'12px 16px',textAlign:'center'}}><span style={{fontSize:13,fontWeight:600,color:'var(--color-primary)'}}>Start with {p.name}</span></div></button>)}
           </div>
         </div>;
       }
 
+      // ═══ MAIN CONVERSATION (Fix 4,5,6 + Sprint 1 pipeline) ═══
+      function Convo({user,char,persona,onBack}){
+        const[log,setLog]=useState([]);
+        const[input,setInput]=useState('');
+        const[step,setStep]=useState(0);
+        const[answers,setAnswers]=useState({});
+        const[resumeText,setResumeText]=useState('');
+        const[jdText,setJdText]=useState('');
+        const[fitData,setFitData]=useState(null);
+        const[jobs,setJobs]=useState(null);
+        const[busy,setBusy]=useState(false);
+        const[status,setStatus]=useState('');
+        const[mode,setMode]=useState('chat'); // 'chat'|'upload'|'paste'|'jd'
+        const[actions,setActions]=useState(null);
+        const bRef=useRef(null);
+        const iRef=useRef(null);
+        const fRef=useRef(null);
+        const fqs = FUQ[char.id][persona];
+        const userName = user?.email?.split('@')[0] || '';
 
-      // ═══ CONVERSATION PAGE (deterministic + persona warmth) ═══
-      function ConvoPage({user,character,persona,onBack}){
-        const [log,setLog] = useState([]);
-        const [input,setInput] = useState('');
-        const [step,setStep] = useState(0); // 0=confirm, 1=follow-up-1, 2=follow-up-2, 3=routing, 4+=artifact
-        const [answers,setAnswers] = useState({});
-        const [resumeText,setResumeText] = useState('');
-        const [jdText,setJdText] = useState('');
-        const [fitData,setFitData] = useState(null);
-        const [jobs,setJobs] = useState(null);
-        const [busy,setBusy] = useState(false);
-        const [statusText,setStatusText] = useState('');
-        const [showUpload,setShowUpload] = useState(false);
-        const [showJd,setShowJd] = useState(false);
-        const [showPaste,setShowPaste] = useState(false);
-        const [actions,setActions] = useState(null);
-        const bottomRef = useRef(null);
-        const inputRef = useRef(null);
-        const fileRef = useRef(null);
-        const v = VOICE[persona];
-        const fups = FOLLOW_UPS[character.id][persona];
+        useEffect(()=>{bRef.current?.scrollIntoView({behavior:'smooth'});},[log,busy,status,actions,mode]);
+        useEffect(()=>{if(mode==='chat')iRef.current?.focus();},[mode,step]);
 
-        useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[log,busy,statusText,actions]);
-        useEffect(()=>{inputRef.current?.focus();},[step,showUpload,showJd]);
+        const add=(type,content,extra={})=>setLog(prev=>[...prev,{type,content,...extra}]);
 
-        const add = (type,content,extra={}) => setLog(prev=>[...prev,{type,content,...extra}]);
-
-        // Boot: confirmation + first follow-up
+        // Fix 4: Context-aware opener + first follow-up question
         useEffect(()=>{
-          const confirmText = v.confirm(character);
-          add('assistant', confirmText);
-          setTimeout(()=>{
-            add('assistant', fups[0]);
-            setStep(1);
-          },700);
-
-          // Store self-selected persona
-          supabase.from('users').update({persona_blend:{self_selected:character.id,character_type:character.type,pack:character.pack}}).eq('id',user.id);
+          const opener = OPENERS[char.id][persona](userName);
+          add('assistant', opener);
+          setTimeout(()=>{ add('assistant', fqs[0]); setStep(1); },800);
+          supabase.from('users').update({self_selected_character:char.id,persona_blend:{self_selected:char.id,type:char.type,pack:char.pack}}).eq('id',user.id);
         },[]);
 
-        // Handle answer to follow-up questions
-        const handleAnswer = (text) => {
-          add('user', text);
-          setAnswers(prev=>({...prev, ['q'+step]: text}));
-
-          if(step === 1){
-            // Ask follow-up 2
-            setTimeout(()=>{
-              add('assistant', fups[1]);
-              setStep(2);
-            },500);
-          } else if(step === 2){
-            // Route based on character type
-            setTimeout(()=>route({...answers, q2:text}),500);
-          }
+        const handleAnswer=(text)=>{
+          add('user',text);
+          setAnswers(prev=>({...prev,['q'+step]:text}));
+          if(step===1){ setTimeout(()=>{add('assistant',fqs[1]);setStep(2);},500); }
+          else if(step===2){ setTimeout(()=>route({...answers,q2:text}),500); }
         };
 
-        // Deterministic routing after 2 follow-ups
-        const route = (allAnswers) => {
+        // Fix 5: Correct routing per character type
+        const route=(ans)=>{
           setStep(3);
-          const type = character.type;
-
-          if(type === 'ghost' || type === 'freshgrad'){
-            // Fresher path — search for roles
-            add('assistant', v.transition_search);
-            setTimeout(()=>searchJobs(allAnswers),400);
-          } else if(type === 'bomber'){
-            // Interview path — skip resume, ask for JD
-            add('assistant', v.transition_jd);
-            setShowJd(true); setStep(4);
+          const t=char.type;
+          if(t==='ghost'||t==='freshgrad'){
+            // Freshers: search for roles first
+            add('assistant',persona==='joshua'?"Let me find some roles that match what you've described.":"Chal dekhte hain kya roles milte hain.");
+            doSearch(ans);
+          } else if(t==='bomber'){
+            // Interview Bomber: needs JD for prep, NOT resume scoring
+            add('assistant',persona==='joshua'?"Your resume is probably fine — the problem is in the interviews. Paste the JD for the role you're interviewing for, and I'll build a prep plan.":"Resume theek hi hoga — problem interviews mein hai. JD paste karo jis role ke liye interview hai, prep plan banata hoon.");
+            setMode('jd'); setStep(4);
+          } else if(t==='stalled'){
+            // Stalled: might be targeting issue, still need resume+JD
+            add('assistant',persona==='joshua'?"With 50+ applications and no callbacks, let me first check if the resume is the problem or if it's targeting. Drop your resume and the JD for a role you recently applied to.":"50+ apply karke response nahi — pehle dekhte hain resume problem hai ya targeting. Resume aur ek recent JD do.");
+            setMode('upload'); setStep(4);
           } else {
-            // Resume path (buried, drifter, switcher, stalled)
-            add('assistant', v.transition_resume);
-            setShowUpload(true); setStep(4);
+            // Buried, Drifter, Switcher: resume path
+            add('assistant',persona==='joshua'?"Drop your resume and I'll start working on it. If you don't have one handy, we can chat more first.":"Resume daal do, kaam shuru karta hoon. Abhi nahi hai toh baat karte hain pehle.");
+            // Fix 6: offer both upload AND continue chatting
+            setActions([{label:'Upload resume',action:'upload'},{label:'I want to chat more first',action:'chat'}]);
+            setStep(4);
           }
         };
 
-        // Serper job search
-        const searchJobs = async(ctx)=>{
-          setBusy(true); setStatusText('Searching for roles...');
+        // Serper search
+        const doSearch=async(ctx)=>{
+          setBusy(true);setStatus('Searching...');
           try{
-            const field = ctx.q1 || character.story;
-            const queries = [`${field} jobs India site:linkedin.com/jobs`, `${field} hiring India site:naukri.com OR site:wellfound.com`, `entry level ${field} India openings`];
-            const results = await callSearch(queries);
-            let jl=[]; if(results)Object.values(results).forEach(items=>(items||[]).forEach(r=>{if(r.title&&r.url&&!jl.find(j=>j.url===r.url))jl.push({title:r.title,url:r.url,snippet:(r.snippet||'').slice(0,180)});}));
-            jl=jl.slice(0,5); setStatusText('');
-            if(jl.length>0){setJobs(jl);add('jobs',null,{jobs:jl});setActions([{label:'Upload resume for one of these',action:'upload'},{label:'Search different roles',action:'search'}]);}
-            else{add('assistant',persona==='joshua'?"Didn't find strong matches. Upload your resume and a JD — I'll score your fit directly.":"Strong matches nahi mile. Resume aur JD do, direct scoring karta hoon.");setShowUpload(true);}
-          }catch{setStatusText('');add('assistant','Search failed — upload resume and JD instead.');setShowUpload(true);}
+            const field=ctx.q1||ctx.q2||char.story;
+            const qs=[`${field} jobs India site:linkedin.com/jobs`,`${field} hiring India site:naukri.com OR site:wellfound.com`,`entry level ${field} India openings`];
+            const sr=await callSearch(qs);
+            let jl=[];if(sr)Object.values(sr).forEach(items=>(items||[]).forEach(r=>{if(r.title&&r.url&&!jl.find(j=>j.url===r.url))jl.push({title:r.title,url:r.url,snippet:(r.snippet||'').slice(0,180)});}));
+            jl=jl.slice(0,5);setStatus('');
+            if(jl.length>0){setJobs(jl);add('jobs',null,{jobs:jl});setActions([{label:'Upload resume for one of these',action:'upload'},{label:'Search different roles',action:'search_again'}]);}
+            else{add('assistant',persona==='joshua'?"Didn't find strong matches. Try uploading your resume and a JD — I'll score directly.":"Strong matches nahi mile. Resume aur JD do, direct score karta hoon.");setActions([{label:'Upload resume',action:'upload'},{label:'Search again',action:'search_again'}]);}
+          }catch{setStatus('');add('assistant','Search issue. Try uploading resume + JD instead.');setActions([{label:'Upload resume',action:'upload'}]);}
           setBusy(false);setStep(5);
         };
 
         // File upload
-        const handleFile = async(file)=>{
-          if(!file)return;setBusy(true);setShowUpload(false);setShowPaste(false);
-          add('status','Parsing '+file.name+'...');
-          try{
-            const t=await parseResumeFile(file);setResumeText(t);
-            add('status','Resume parsed — '+t.split(/\s+/).length+' words');
-            await supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true,version:1});
-            setTimeout(()=>{add('assistant',v.transition_jd);setShowJd(true);},400);
-          }catch(err){add('assistant','Could not read — '+err.message+'. Try pasting text.');setShowPaste(true);}
+        const handleFile=async(f)=>{
+          if(!f)return;setBusy(true);setMode('chat');setActions(null);
+          add('status','Parsing '+f.name+'...');
+          try{const t=await parseFile(f);setResumeText(t);add('status','Resume — '+t.split(/\s+/).length+' words');await supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true,version:1});
+            setTimeout(()=>{add('assistant',persona==='joshua'?"Got it. Now paste the JD for the role you're targeting. Or if you'd rather chat first, just type.":"Resume mil gaya. Ab JD paste karo target role ka. Ya chat karna hai toh type karo.");setMode('chat');setStep(6);},400);
+          }catch(e){add('assistant','Could not read — '+e.message);setMode('chat');}
           setBusy(false);
         };
 
-        // JD + analysis pipeline
-        const analyze = async()=>{
-          if(!jdText.trim())return;
-          const jd=jdText.trim();setShowJd(false);setJdText('');
+        // Analysis pipeline
+        const analyze=async(jd)=>{
+          setMode('chat');setBusy(true);
           add('user',jd.length>150?jd.slice(0,150)+'...':jd);
-          add('assistant',persona==='joshua'?'Give me a moment — scoring your fit.':'Ek minute — fit score nikaal raha hoon.');
-          setBusy(true);
+          add('assistant',persona==='joshua'?'Scoring your fit — one moment.':'Fit score nikaal raha hoon — ek minute.');
           try{
-            setStatusText('Identifying role...');
+            setStatus('Identifying role...');
             const{text:eJ}=await callLLM({system:'Extract company and role. ONLY JSON: {"company":"","role":""}',messages:[{role:'user',content:jd.slice(0,2000)}],temperature:0.1,max_tokens:80,model:'haiku'});
-            let ext;try{ext=extractJsonObject(eJ);}catch{ext={company:'Company',role:'Role'};}
+            let ext;try{ext=xJSON(eJ)}catch{ext={company:'Company',role:'Role'};}
             add('status',ext.role+' at '+ext.company);
+            sessionCost+=(0.0004);
 
             const{data:ws}=await supabase.from('workspaces').insert({user_id:user.id,role_title:ext.role,company:ext.company,jd_raw:jd,status:'analyzing'}).select().single();
 
-            setStatusText('Researching '+ext.company+'...');
-            const sr=await callSearch([ext.company+' engineering culture',ext.company+' '+ext.role+' interview',ext.company+' glassdoor']);
-            const sCtx=formatSearchContext(sr);
-            const cRaw=await callGroq('Analyze '+ext.company+' for '+ext.role+'.\n'+sCtx+'\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","redFlags":[],"emphasize":[]}',{model:'openai/gpt-oss-120b',max_tokens:2500});
-            const cd=validateCompanyData(extractJsonObject(cRaw));
+            setStatus('Researching '+ext.company+'...');
+            const sr=await callSearch([ext.company+' culture tech',ext.company+' '+ext.role+' interview',ext.company+' glassdoor']);
+            const cRaw=await callGroq('Analyze '+ext.company+' for '+ext.role+'.\n'+fmtSearch(sr)+'\nReturn JSON: {"techStack":[],"coreValues":[],"interviewFocus":"","culturalTone":"","redFlags":[],"emphasize":[]}',{model:'openai/gpt-oss-120b',max_tokens:2500});
+            const cd=valCo(xJSON(cRaw));
 
-            setStatusText('Parsing JD...');
+            setStatus('Parsing JD...');
             const jRaw=await callGroq('Parse JD.\nJD:\n'+jd+'\nReturn JSON: {"mandatorySkills":[],"niceToHave":[],"actionVerbs":[],"responsibilityPatterns":[],"hiddenRequirements":[],"winningPhrases":[]}',{model:'llama-3.1-8b-instant',max_tokens:2500,temperature:0.1});
-            const jdD=validateJDData(extractJsonObject(jRaw));
+            const jdD=valJD(xJSON(jRaw));
             if(ws)await supabase.from('workspaces').update({jd_parsed:jdD,company_data:cd}).eq('id',ws.id);
 
-            setStatusText('Scoring fit...');
-            const sourceText = resumeText || (answers.q1||'')+' '+(answers.q2||'');
-            const sP='Score resume vs JD.\nRESUME:\n'+sourceText.slice(0,3000)+'\nCOMPANY:'+JSON.stringify(cd)+'\nJD:'+JSON.stringify(jdD)+'\nTARGET:'+ext.role+' at '+ext.company+'\nRubric(100):MustHave(30),Responsibilities(12),Tonality(8),Metrics(15),Seniority(10),ATS(10),Tooling(10),Differentiators(5).\nReturn JSON:{"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}';
+            setStatus('Scoring...');
+            const src=resumeText||(answers.q1||'')+' '+(answers.q2||'');
+            const sP='Score resume vs JD.\nRESUME:\n'+src.slice(0,3000)+'\nCOMPANY:'+JSON.stringify(cd)+'\nJD:'+JSON.stringify(jdD)+'\nTARGET:'+ext.role+' at '+ext.company+'\nRubric(100):MustHave(30),Resp(12),Tone(8),Metrics(15),Seniority(10),ATS(10),Tooling(10),Diff(5).\nReturn JSON:{"matchScore":0,"scoreBreakdown":{"mustHaveCoverage":{"score":0,"max":30,"detail":""},"responsibilitiesAlignment":{"score":0,"max":12,"detail":""},"tonalityFit":{"score":0,"max":8,"detail":""},"impactMetrics":{"score":0,"max":15,"detail":""},"seniorityScope":{"score":0,"max":10,"detail":""},"atsStructure":{"score":0,"max":10,"detail":""},"domainTooling":{"score":0,"max":10,"detail":""},"differentiators":{"score":0,"max":5,"detail":""}},"topGaps":[{"item":"","reason":""}],"topStrengths":[""],"potentialScoreAfter":0}';
             const scRaw=await callGroq(sP,{model:'openai/gpt-oss-120b',max_tokens:3000,temperature:0.1});
-            const sd=extractJsonObject(scRaw);
-            const dual=computeDualScores(sd.scoreBreakdown);
-            const fit={score:sd.matchScore,atsScore:dual.atsScore,hmScore:dual.hmScore,clearance:dual.clearance,gaps:sd.topGaps||[],strengths:sd.topStrengths||[],categories:sd.scoreBreakdown,potential:sd.potentialScoreAfter};
+            const sd=xJSON(scRaw);
+            const ds=dualScore(sd.scoreBreakdown);
+            const fit={score:sd.matchScore,atsScore:ds.a,hmScore:ds.h,clearance:ds.cl,gaps:sd.topGaps||[],strengths:sd.topStrengths||[],categories:sd.scoreBreakdown,potential:sd.potentialScoreAfter};
             setFitData(fit);
             if(ws)await supabase.from('fit_snapshots').insert({workspace_id:ws.id,overall_score:fit.score,ats_score:fit.atsScore,hm_score:fit.hmScore,category_scores:fit.categories,potential_score:fit.potential});
 
-            setStatusText('');
-            const vPrompt=persona==='joshua'?`Score: ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences, direct.`:`Score aaya ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences.`;
-            const{text:verdict,cost}=await callLLM({system:`You are ${persona==='joshua'?'Joshua, direct career strategist':'Adi, Hinglish career dost'}. No markdown. Plain text.`,messages:[{role:'user',content:vPrompt}],temperature:0.4,max_tokens:150,model:'haiku'});
+            setStatus('');
+            const vP=persona==='joshua'?`Score: ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences.`:`Score ${fit.score}/100. ${fit.clearance}. Gap: ${fit.gaps[0]?.item||'none'}. Strength: ${fit.strengths[0]||'none'}. 2-3 sentences Hinglish.`;
+            const{text:v,cost}=await callLLM({system:`You are ${persona==='joshua'?'Joshua, direct career strategist':'Adi, Hinglish career dost'}. Plain text, no markdown.`,messages:[{role:'user',content:vP}],temperature:0.4,max_tokens:150,model:'haiku'});
             sessionCost+=(cost.total||0);
 
-            add('assistant',verdict);
+            add('assistant',v);
             add('fit',null,{fitData:fit});
-            setActions([{label:'Rewrite resume for this role',action:'rewrite'},{label:'Find similar roles',action:'search'},{label:'Analyze different role',action:'new'}]);
-            console.log('[pipeline] Session: $'+sessionCost.toFixed(4));
-          }catch(err){setStatusText('');add('assistant','Analysis error: '+err.message+'. Try pasting JD again.');setShowJd(true);}
+            setActions([{label:'Rewrite my resume',action:'rewrite'},{label:'Find similar roles',action:'search_again'},{label:'New analysis',action:'new'}]);
+            console.log('[pipeline] $'+sessionCost.toFixed(4));
+          }catch(e){setStatus('');add('assistant','Error: '+e.message+'. Try again.');setMode('chat');}
           setBusy(false);
         };
 
-        // Post-artifact actions
-        const handleAction=(a)=>{
-          setActions(null);
-          if(a==='upload'){setShowUpload(true);}
-          else if(a==='search'){add('assistant',persona==='joshua'?"What type of role?":"Kis type ka role?");setStep(9);}
-          else if(a==='rewrite'){add('assistant',persona==='joshua'?"Resume rewrite is coming in the next update. Use the gap analysis to guide your edits for now.":"Resume rewrite next update mein aayega. Abhi gap analysis follow karo.");setActions([{label:'Find similar roles',action:'search'},{label:'New analysis',action:'new'}]);}
-          else if(a==='new'){setResumeText('');setFitData(null);setJobs(null);add('assistant',v.transition_resume);setShowUpload(true);}
+        // Free chat handler (Fix 6: always allow conversation)
+        const handleChat=async(text)=>{
+          add('user',text);setBusy(true);
+          // Check if this looks like a JD (long text with job-related keywords)
+          if(text.length>200 && /responsibilities|requirements|qualifications|experience|role|position/i.test(text)){
+            await analyze(text); return;
+          }
+          // Otherwise, use Haiku for a short conversational response
+          try{
+            const ctx=log.slice(-4).map(m=>m.content||'').join(' ');
+            const{text:reply,cost}=await callLLM({
+              system:`You are ${persona==='joshua'?'Joshua, direct career strategist. Short answers, 1-2 sentences. No markdown.':'Adi, Hinglish career dost. Short, 1-2 sentences. No markdown.'}`,
+              messages:[{role:'user',content:`Context: User is ${char.name}'s type (${char.type}). Recent: ${ctx}\n\nUser says: "${text}"\n\nRespond briefly. If they seem ready to upload resume or provide JD, encourage it. If they want to search for roles, ask what kind.`}],
+              temperature:0.4,max_tokens:120,model:'haiku'
+            });
+            sessionCost+=(cost.total||0);
+            add('assistant',reply);
+            // If no resume yet and they haven't explicitly asked for something else, gently remind
+            if(!resumeText&&step>=3&&!actions){
+              setActions([{label:'Upload resume',action:'upload'},{label:'Find me roles',action:'search_again'}]);
+            }
+          }catch(e){add('assistant','Connection issue — try again.');}
+          setBusy(false);
         };
 
-        // Text input
+        const handleAction=(a)=>{
+          setActions(null);
+          if(a==='upload'){setMode('upload');}
+          else if(a==='chat'){setMode('chat');add('assistant',persona==='joshua'?"Sure, what's on your mind?":"Haan bolo, kya sochna hai?");}
+          else if(a==='search_again'){setMode('chat');add('assistant',persona==='joshua'?"What type of role are you looking for?":"Kis type ka role chahiye?");setStep(9);}
+          else if(a==='rewrite'){add('assistant',persona==='joshua'?"Resume rewrite is coming in the next update. Use the gap analysis to guide your edits.":"Resume rewrite next update mein. Gap analysis follow karo abhi.");setActions([{label:'Find similar roles',action:'search_again'},{label:'New analysis',action:'new'}]);}
+          else if(a==='new'){setResumeText('');setFitData(null);setJobs(null);setMode('upload');add('assistant',persona==='joshua'?"Drop your resume for the next role.":"Agla role ke liye resume daalo.");}
+        };
+
         const send=()=>{
           if(!input.trim())return;
           const t=input.trim();setInput('');
           if(step>=1&&step<=2){handleAnswer(t);}
-          else if(step===9){add('user',t);searchJobs({q1:t});}
-          else if(showJd){setJdText(t);setTimeout(()=>analyze(),50);}
+          else if(step===9){add('user',t);doSearch({q1:t});}
+          else{handleChat(t);}
         };
 
         const[theme,setTheme]=useState(()=>{try{return localStorage.getItem('rc_theme')||'dark';}catch{return'dark';}});
         const toggleTheme=()=>{const n=theme==='dark'?'light':'dark';setTheme(n);document.documentElement.setAttribute('data-theme',n);try{localStorage.setItem('rc_theme',n);}catch{}};
 
-        const showText = (step>=1&&step<=2)||step===9;
-
         return <div style={{display:'flex',flexDirection:'column',height:'100vh'}}>
           <nav style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--color-border)',background:'var(--color-surface)'}}>
-            <div style={{display:'flex',alignItems:'center',gap:12}}>
-              <button onClick={onBack} style={{background:'none',border:'none',padding:4,display:'flex',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
-              <Avatar persona={persona} size={30}/>
-              <div><div style={{fontSize:14,fontWeight:600}}>{persona==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:10,color:'var(--color-success)',display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:'var(--color-success)'}}/>online</div></div>
-            </div>
-            <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              {fitData&&<span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--color-primary)'}}>{fitData.score}/100</span>}
-              <Logo size={14}/>
-              <button onClick={toggleTheme} style={{width:36,height:22,borderRadius:11,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:16,height:16,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?17:3,transition:'left .3s cubic-bezier(.34,1.56,.64,1)',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}/></button>
-            </div>
+            <div style={{display:'flex',alignItems:'center',gap:12}}><button onClick={onBack} style={{background:'none',border:'none',padding:4,display:'flex',cursor:'pointer'}}><svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M10 12L6 8l4-4" stroke="var(--color-text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button><Av p={persona} size={30}/><div><div style={{fontSize:14,fontWeight:600}}>{persona==='joshua'?'Joshua':'Adi'}</div><div style={{fontSize:10,color:'var(--color-success)',display:'flex',alignItems:'center',gap:4}}><div style={{width:5,height:5,borderRadius:'50%',background:'var(--color-success)'}}/>online</div></div></div>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>{fitData&&<span style={{fontSize:11,fontFamily:'var(--font-mono)',color:'var(--color-primary)'}}>{fitData.score}/100</span>}<Logo size={14}/><button onClick={toggleTheme} style={{width:36,height:22,borderRadius:11,background:theme==='dark'?'var(--color-primary)':'var(--color-border)',border:'none',position:'relative',cursor:'pointer'}}><div style={{width:16,height:16,borderRadius:'50%',background:theme==='dark'?'var(--color-bg)':'#fff',position:'absolute',top:3,left:theme==='dark'?17:3,transition:'left .3s',boxShadow:'0 1px 2px rgba(0,0,0,.1)'}}/></button></div>
           </nav>
 
           <div style={{flex:1,overflowY:'auto',padding:'16px 0',display:'flex',flexDirection:'column',gap:14}}>
             <div style={{maxWidth:'var(--max-conversation)',width:'100%',margin:'0 auto',display:'flex',flexDirection:'column',gap:14}}>
               {log.map((m,i)=>{
-                if(m.type==='assistant')return <Bubble key={i} type="assistant" persona={persona}>{m.content}</Bubble>;
-                if(m.type==='user')return <Bubble key={i} type="user">{m.content}</Bubble>;
-                if(m.type==='status')return <Bubble key={i} type="status">{m.content}</Bubble>;
-                if(m.type==='fit')return <FitCard key={i} data={m.fitData}/>;
-                if(m.type==='jobs')return <JobList key={i} jobs={m.jobs}/>;
+                if(m.type==='assistant')return <Msg key={i} type="assistant" persona={persona}>{m.content}</Msg>;
+                if(m.type==='user')return <Msg key={i} type="user">{m.content}</Msg>;
+                if(m.type==='status')return <Msg key={i} type="status">{m.content}</Msg>;
+                if(m.type==='fit')return <FitCard key={i} d={m.fitData}/>;
+                if(m.type==='jobs')return <div key={i} className="msg-in" style={{padding:'0 16px 0 52px'}}><div style={{background:'var(--color-surface)',border:'1px solid var(--color-accent)',borderRadius:'var(--radius-lg)',padding:16,borderLeft:'3px solid var(--color-accent)'}}><div style={{fontSize:10,fontWeight:700,letterSpacing:'1.5px',textTransform:'uppercase',color:'var(--color-accent)',marginBottom:10}}>MATCHING ROLES</div>{(m.jobs||[]).map((j,k)=><div key={k} style={{marginBottom:k<(m.jobs||[]).length-1?10:0,paddingBottom:k<(m.jobs||[]).length-1?10:0,borderBottom:k<(m.jobs||[]).length-1?'1px solid var(--color-border-light)':'none'}}><div style={{fontSize:13,fontWeight:600,marginBottom:2}}>{j.title}</div>{j.snippet&&<div style={{fontSize:11,color:'var(--color-text-secondary)',marginBottom:3}}>{j.snippet}</div>}<a href={j.url} target="_blank" rel="noopener" style={{fontSize:11,color:'var(--color-primary)',textDecoration:'none'}}>{j.url.length>55?j.url.slice(0,55)+'...':j.url}</a></div>)}</div></div>;
                 return null;
               })}
-              {statusText&&<Bubble type="status"><div style={{width:10,height:10,border:'2px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/>{statusText}</Bubble>}
-              {busy&&!statusText&&<Dots persona={persona}/>}
-              {actions&&<div className="msg-in" style={{padding:'0 16px 0 52px',display:'flex',gap:8,flexWrap:'wrap'}}>{actions.map((a,i)=><Btn key={i} label={a.label} onClick={()=>handleAction(a.action)} primary={i===0}/>)}</div>}
-              <div ref={bottomRef}/>
+              {status&&<Msg type="status"><div style={{width:10,height:10,border:'2px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite',flexShrink:0}}/>{status}</Msg>}
+              {busy&&!status&&<Dots p={persona}/>}
+              {actions&&<div className="msg-in" style={{padding:'0 16px 0 52px',display:'flex',gap:8,flexWrap:'wrap'}}>{actions.map((a,i)=><Btn key={i} label={a.label} onClick={()=>handleAction(a.action)} primary={i===0} small/>)}</div>}
+              <div ref={bRef}/>
             </div>
           </div>
 
-          {showUpload&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
-            <div onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();e.currentTarget.style.borderColor='var(--color-primary)';}} onDragLeave={e=>e.currentTarget.style.borderColor='var(--color-border)'} onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);}} style={{border:'2px dashed var(--color-border)',borderRadius:'var(--radius-md)',padding:16,textAlign:'center',cursor:'pointer'}}><div style={{fontSize:13,fontWeight:500,marginBottom:3}}>Drop your resume here</div><div style={{fontSize:11,color:'var(--color-text-muted)'}}>PDF, DOCX, or TXT</div></div>
-            <input ref={fileRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])}/>
-            <div style={{textAlign:'center',marginTop:6}}><button onClick={()=>{setShowUpload(false);setShowPaste(true);}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>or paste text</button></div>
+          {/* Upload zone */}
+          {mode==='upload'&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+            <div onClick={()=>fRef.current?.click()} onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();handleFile(e.dataTransfer.files[0]);}} style={{border:'2px dashed var(--color-border)',borderRadius:'var(--radius-md)',padding:14,textAlign:'center',cursor:'pointer'}}><div style={{fontSize:13,fontWeight:500,marginBottom:2}}>Drop resume here</div><div style={{fontSize:11,color:'var(--color-text-muted)'}}>PDF, DOCX, or TXT</div></div>
+            <input ref={fRef} type="file" accept=".pdf,.docx,.doc,.txt" style={{display:'none'}} onChange={e=>handleFile(e.target.files[0])}/>
+            <div style={{display:'flex',justifyContent:'center',gap:12,marginTop:8}}>
+              <button onClick={()=>setMode('paste')} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>paste text</button>
+              <button onClick={()=>{setMode('chat');add('assistant',persona==='joshua'?"No problem — what's on your mind?":"Koi baat nahi — bolo kya sochna hai?");}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',textDecoration:'underline',cursor:'pointer'}}>chat instead</button>
+            </div>
           </div></div>}
 
-          {showPaste&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
-            <textarea placeholder="Paste resume text..." rows={5} style={{width:'100%',marginBottom:6}} id="rp"/>
-            <Btn label="Submit" primary onClick={()=>{const t=document.getElementById('rp').value.trim();if(t.length>20){setResumeText(t);setShowPaste(false);supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true});add('status','Resume — '+t.split(/\s+/).length+' words');setTimeout(()=>{add('assistant',v.transition_jd);setShowJd(true);},400);}}}/>
+          {/* Paste zone */}
+          {mode==='paste'&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+            <textarea placeholder="Paste resume text..." rows={4} style={{width:'100%',marginBottom:6}} id="rp"/>
+            <div style={{display:'flex',gap:8}}><Btn label="Submit" primary onClick={()=>{const t=document.getElementById('rp').value.trim();if(t.length>20){setResumeText(t);setMode('chat');supabase.from('resumes').insert({user_id:user.id,raw_text:t,is_master:true});add('status','Resume — '+t.split(/\s+/).length+' words');setTimeout(()=>{add('assistant',persona==='joshua'?"Got it. Paste the JD now, or just tell me about the role you want.":"Resume mil gaya. JD paste karo ya role describe karo.");setStep(6);},400);}}} small/><button onClick={()=>setMode('chat')} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',cursor:'pointer'}}>cancel</button></div>
           </div></div>}
 
-          {showJd&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
+          {/* JD zone (for interview bomber) */}
+          {mode==='jd'&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto'}}>
             <textarea placeholder="Paste job description..." rows={4} value={jdText} onChange={e=>setJdText(e.target.value)} style={{width:'100%',marginBottom:6}}/>
-            <Btn label="Analyze" primary onClick={analyze}/>
+            <div style={{display:'flex',gap:8}}><Btn label="Analyze" primary onClick={()=>{if(jdText.trim()){analyze(jdText.trim());setJdText('');}}} small/><button onClick={()=>{setMode('chat');add('assistant',persona==='joshua'?"No JD handy? Tell me about the role and company.":"JD nahi hai? Role aur company describe karo.");}} style={{fontSize:11,color:'var(--color-text-muted)',background:'none',border:'none',cursor:'pointer'}}>chat instead</button></div>
           </div></div>}
 
-          {showText&&!showUpload&&!showPaste&&!showJd&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto',display:'flex',gap:8}}>
-            <input ref={inputRef} type="text" placeholder={persona==='joshua'?'Your answer...':'Jawab likho...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} style={{flex:1,borderRadius:'var(--radius-md)',padding:'11px 16px'}}/>
+          {/* Text input (always available in chat mode) */}
+          {mode==='chat'&&<div style={{padding:'10px 16px',borderTop:'1px solid var(--color-border)',background:'var(--color-surface)'}}><div style={{maxWidth:'var(--max-conversation)',margin:'0 auto',display:'flex',gap:8}}>
+            <input ref={iRef} type="text" placeholder={persona==='joshua'?'Type here...':'Yahan likho...'} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>e.key==='Enter'&&send()} style={{flex:1,borderRadius:'var(--radius-md)',padding:'11px 16px'}}/>
             <button onClick={send} disabled={!input.trim()||busy} style={{width:40,height:40,borderRadius:'var(--radius-md)',background:'var(--color-primary)',border:'none',display:'flex',alignItems:'center',justifyContent:'center',opacity:(!input.trim()||busy)?.4:1,cursor:'pointer'}}><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 4l4 4-4 4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></button>
           </div></div>}
         </div>;
       }
 
-
       // ═══ APP ═══
       function App(){
         const[session,setSession]=useState(null);const[profile,setProfile]=useState(null);const[loading,setLoading]=useState(true);
-        const[character,setCharacter]=useState(null);const[persona,setPersona]=useState(null);
-
-        useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)load(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)load(s.user);else{setProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);
-        const load=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setProfile(data);setLoading(false);};
-        const signOut=async()=>{await supabase.auth.signOut();setSession(null);setProfile(null);setCharacter(null);setPersona(null);};
-
+        const[char,setChar]=useState(null);const[persona,setPersona]=useState(null);
+        useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)ld(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)ld(s.user);else{setProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);
+        const ld=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setProfile(data);setLoading(false);};
+        const so=async()=>{await supabase.auth.signOut();setSession(null);setProfile(null);setChar(null);setPersona(null);};
         if(loading)return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:10}}><div style={{width:20,height:20,border:'3px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{color:'var(--color-text-muted)',fontSize:14}}>Loading...</span></div>;
-        if(!session) return <AuthScreen/>;
-        if(character && persona) return <ConvoPage user={session.user} character={character} persona={persona} onBack={()=>{setCharacter(null);setPersona(null);}}/>;
-        if(character) return <PersonaSelect character={character} onSelect={setPersona}/>;
-        return <CharacterSelect onSelect={setCharacter}/>;
+        if(!session)return <Auth/>;
+        if(char&&persona)return <Convo user={session.user} char={char} persona={persona} onBack={()=>{setChar(null);setPersona(null);}}/>;
+        if(char)return <PersonaPick char={char} onPick={setPersona}/>;
+        return <CharSelect onPick={setChar}/>;
       }
-
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
     </script>
 </body>
