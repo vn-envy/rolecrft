@@ -1,0 +1,17 @@
+You are working on Rolecrft, a conversational career intelligence product.
+
+First read `docs/codex-context.md` and follow it strictly.
+
+Then execute `docs/sprint-briefs/sprint-0-foundation.md`.
+
+Important constraints:
+- Preserve current product behavior
+- Do not redesign UI
+- Do not add speculative features
+- Keep current Netlify function contracts stable
+- Return your answer in these sections only:
+  1. What changed
+  2. Files created/edited
+  3. What to test manually
+  4. Known risks
+  5. Next smallest logical task
