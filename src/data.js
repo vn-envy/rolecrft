@@ -1,0 +1,33 @@
+window.Rolecrft = window.Rolecrft || {};
+
+(function(ns){
+  ns.CHARS = [
+    { id:'ananya', name:'Ananya', city:'Pune', type:'ghost', pack:'fresher', hook:"Starting from zero — need direction first", story:"I graduated last year but never really started looking. No resume, no LinkedIn, honestly not sure what I'm even qualified for.", color:'#8B5E83' },
+    { id:'rohan', name:'Rohan', city:'Bengaluru', type:'freshgrad', pack:'fresher', hook:"Has raw material, doesn't know how to package it", story:"Just finished my degree. I've done a couple of college projects and one internship, but I don't know how to turn that into a real resume.", color:'#5A9D88' },
+    { id:'karthik', name:'Karthik', city:'Chennai', type:'drifter', pack:'resume', hook:"Working but unclear on what's next", story:"I've been working for 2 years but I'm not excited about my current field. I think I want to switch but I genuinely don't know which direction to go.", color:'#D4813A' },
+    { id:'priya', name:'Priya', city:'Mumbai', type:'buried', pack:'resume', hook:"Clear target, outdated resume", story:"My resume is from 2 years ago and it's generic. I know what role I want — I just need the resume to actually land interviews.", color:'#5A7738' },
+    { id:'vikram', name:'Vikram', city:'Gurugram', type:'bomber', pack:'interview', hook:"Strong on paper, struggling in interviews", story:"I'm getting interviews at good companies but keep dropping out in the middle rounds. My resume is fine — it's the interviews I can't crack.", color:'#4A7A8C' },
+    { id:'nisha', name:'Nisha', city:'Hyderabad', type:'switcher', pack:'resume', hook:"Making a career pivot — resume doesn't translate", story:"I'm switching from ops to product. I have 4 years of experience but none of it is in the domain I'm targeting.", color:'#C7692A' },
+    { id:'meera', name:'Meera', city:'Delhi', type:'stalled', pack:'resume', hook:"Applied to 50+ roles, barely hearing back", story:"I've applied to 50+ roles in the last 3 months and I'm barely hearing back. My resume seems fine but clearly something isn't working.", color:'#8B6EA8' },
+  ];
+
+  ns.FUQ = {
+    ananya:{ joshua:["What did you study, and was there any part of it you actually enjoyed?","If you had to pick — structured corporate path or something more startup-ish?"], adi:["Kya padha tha, aur usme koi cheez thi jo pasand aayi?","Corporate structured ya startup wala scene — gut feeling kya hai?"]},
+    rohan:{ joshua:["Tell me about that internship — what did you actually work on?","Are you targeting a specific role, or open to seeing what fits?"], adi:["Internship mein kya kaam kiya tha?","Koi specific role soch rahe ho ya open ho?"]},
+    karthik:{ joshua:["What's your current role, and what about it isn't working?","When you imagine your ideal workday 2 years out — what does it look like?"], adi:["Abhi kya kar rahe ho, aur exact problem kya hai?","2 saal baad ideal workday kaisa dikhta hai?"]},
+    priya:{ joshua:["What role are you targeting — do you have a specific company or JD?","How many years of experience, and what's been your strongest contribution?"], adi:["Kaunsa role target kar rahe ho — company ya JD hai specific?","Kitne saal ka experience, aur strongest contribution kya raha?"]},
+    vikram:{ joshua:["Which round are you typically failing — screens, technicals, or finals?","Describe the last interview that went badly — what happened?"], adi:["Kaunse round mein usually fail ho — screen, technical, ya final?","Last kharab interview — kya hua tha?"]},
+    nisha:{ joshua:["What's your current domain, and what are you switching to?","Is there anything from your current work that translates — leadership, process, data?"], adi:["Abhi kaunsa domain hai aur kis mein jaana chahte ho?","Current kaam se kuch translate hota hai — leadership, process, data?"]},
+    meera:{ joshua:["How are you finding these roles — job boards, referrals, LinkedIn?","When you look at the JDs, do they match your level or are you stretching?"], adi:["Roles kaise dhundh rahe ho — boards, referrals, LinkedIn?","Jo JDs mein apply karte ho, level match hai ya stretch?"]},
+  };
+
+  ns.OPENERS = {
+    ananya:{ joshua:(n)=>`Hey ${n}. You're in Ananya's shoes — starting fresh, no resume yet, figuring out direction. That's completely workable. Let me understand a bit more about you.`, adi:(n)=>`Hey ${n}. Ananya jaisi situation hai — abhi starting point pe ho, direction dhundh rahe ho. Bilkul theek hai, chal samajhte hain.`},
+    rohan:{ joshua:(n)=>`Hey ${n}. You've got projects and an internship but no proper resume yet — that's Rohan's situation exactly. The raw material exists, we just need to shape it. Quick question first.`, adi:(n)=>`Hey ${n}. Projects aur internship hai but resume nahi — exactly Rohan wali situation. Material hai, bas shape dena hai. Ek question pehle.`},
+    karthik:{ joshua:(n)=>`Hey ${n}. Two years in, not excited about the current path, not sure what's next — that's Karthik's spot. Before we touch any resume, let's get clear on direction.`, adi:(n)=>`Hey ${n}. Do saal ho gaye, current field mein excitement nahi hai — Karthik wali situation. Resume se pehle direction clear karte hain.`},
+    priya:{ joshua:(n)=>`Hey ${n}. You know what you want but the resume isn't doing its job — Priya's exact situation. I've fixed hundreds of these. A couple of things I need to know first.`, adi:(n)=>`Hey ${n}. Role clear hai but resume kaam nahi kar raha — Priya jaisi situation. Aise bahut fix kiye hain. Do cheezein puchta hoon pehle.`},
+    vikram:{ joshua:(n)=>`Hey ${n}. Getting interviews but dropping out mid-rounds — that's Vikram's problem and it's usually not about the resume. Let me figure out exactly where things are breaking.`, adi:(n)=>`Hey ${n}. Interviews mil rahe hain but middle rounds mein fail — Vikram wali problem. Resume problem nahi hoga shayad. Dekhte hain kahan break ho raha hai.`},
+    nisha:{ joshua:(n)=>`Hey ${n}. Career switch with 4 years of experience that doesn't map to the new domain — Nisha's challenge. The translation is doable but I need to understand both sides first.`, adi:(n)=>`Hey ${n}. Domain switch kar rahe ho — experience hai but naye field mein translate nahi ho raha. Nisha wali challenge. Dono sides samajhna padega.`},
+    meera:{ joshua:(n)=>`Hey ${n}. 50+ applications, barely hearing back — Meera's frustration. The resume might actually be fine; the problem is often targeting. Let me diagnose.`, adi:(n)=>`Hey ${n}. 50+ applications, koi response nahi — Meera jaisi frustration. Resume theek bhi ho sakta hai, problem targeting mein hogi. Diagnose karte hain.`},
+  };
+})(window.Rolecrft);
