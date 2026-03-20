@@ -1,0 +1,10 @@
+window.Rolecrft = window.Rolecrft || {};
+
+(function(ns){
+  ns.xJSON = function xJSON(r){const t=(r||'').trim().replace(/```json?\s*/gi,'').replace(/```\s*/g,'');const s=t.indexOf('{'),e=t.lastIndexOf('}');if(s===-1||e<=s)throw new Error('No JSON');return JSON.parse(t.slice(s,e+1));};
+  ns.valCo = function valCo(d){d.techStack=d.techStack||[];d.coreValues=d.coreValues||[];d.culturalTone=d.culturalTone||'professional';d.emphasize=d.emphasize||[];d.redFlags=d.redFlags||[];return d;};
+  ns.valJD = function valJD(d){d.mandatorySkills=d.mandatorySkills||[];d.actionVerbs=d.actionVerbs||['Led','Built','Designed'];d.niceToHave=d.niceToHave||[];d.responsibilityPatterns=d.responsibilityPatterns||[];return d;};
+  ns.dualScore = function dualScore(bd){if(!bd)return{a:0,h:0,cl:'Grounded'};const g=k=>{const d=bd[k];return d?(d.score/d.max)*100:0;};const a=Math.round(g('mustHaveCoverage')*.40+g('atsStructure')*.25+g('domainTooling')*.20+g('responsibilitiesAlignment')*.15);const h=Math.round(g('impactMetrics')*.30+g('seniorityScope')*.25+g('tonalityFit')*.20+g('differentiators')*.15+g('responsibilitiesAlignment')*.10);return{a,h,cl:(a>=75&&h>=70)?'Cleared':(a<50||h<45)?'Grounded':'Conditional'};};
+  ns.fmtSearch = function fmtSearch(sr){if(!sr)return'';let c='';Object.entries(sr).forEach(([q,items])=>{c+=`"${q}":\n`;items.forEach(r=>{c+=r.title+' - '+r.snippet+'\n';});});return c;};
+  ns.parseFile = async function parseFile(f){const x=f.name.split('.').pop().toLowerCase();if(!['pdf','docx','doc','txt'].includes(x))throw new Error('Use PDF, DOCX, or TXT.');let t='';if(x==='txt')t=await f.text();else if(x==='docx'||x==='doc'){const a=await f.arrayBuffer();t=(await mammoth.extractRawText({arrayBuffer:a})).value;}else{const a=await f.arrayBuffer();const p=await pdfjsLib.getDocument({data:a}).promise;const pg=[];for(let i=1;i<=p.numPages;i++){const g=await p.getPage(i);const c=await g.getTextContent();pg.push(c.items.map(i=>i.str).join(' '));}t=pg.join('\n\n');}t=t.trim();if(t.length<20)throw new Error('Could not extract text.');return t;};
+})(window.Rolecrft);
