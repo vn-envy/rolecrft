@@ -1,0 +1,109 @@
+      /* ═══════════════════════════════════════════════════════
+         ROLECRFT v2 — Brand CSS Tokens
+         ═══════════════════════════════════════════════════════ */
+      :root {
+        --font-wordmark: 'Nunito', sans-serif;
+        --font-body: 'DM Sans', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', monospace;
+
+        --color-primary: #5A7738;
+        --color-primary-light: #E8F0DF;
+        --color-primary-muted: #7A9B5A;
+        --color-accent: #D4813A;
+        --color-accent-light: #FFF0E6;
+
+        --color-joshua: #4A7A8C;
+        --color-joshua-light: #E6F0F6;
+        --color-adi: #C7692A;
+        --color-adi-light: #FDE8DC;
+
+        --color-bg: #FAF8F5;
+        --color-surface: #FFFFFF;
+        --color-elevated: #FFFFFF;
+        --color-text: #2C2420;
+        --color-text-secondary: #7A6E65;
+        --color-text-muted: #A89E95;
+        --color-border: #E8E0D8;
+        --color-border-light: #F0EBE4;
+
+        --color-success: #3D8B5E;
+        --color-warning: #D4913A;
+        --color-danger: #C75050;
+
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 16px;
+        --radius-xl: 20px;
+        --radius-full: 9999px;
+
+        --max-conversation: 680px;
+      }
+
+      /* ─── Dark Theme ─────────────────────────────── */
+      html[data-theme="dark"] {
+        --color-primary: #7A9B5A;
+        --color-primary-light: #2A3530;
+        --color-primary-muted: #5A7738;
+        --color-accent: #E8905A;
+        --color-accent-light: #3A2A1E;
+        --color-joshua: #5A9ABD;
+        --color-joshua-light: #1E2E38;
+        --color-adi: #D47A4A;
+        --color-adi-light: #382218;
+        --color-bg: #141210;
+        --color-surface: #1C1A17;
+        --color-elevated: #242220;
+        --color-text: #F5F0EB;
+        --color-text-secondary: #A89E95;
+        --color-text-muted: #7A6E65;
+        --color-border: #352F2A;
+        --color-border-light: #2A2725;
+        --color-success: #5AAD7A;
+        --color-warning: #E8A04A;
+        --color-danger: #E06060;
+      }
+
+      /* ─── Base ───────────────────────────────────── */
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        font-family: var(--font-body);
+        background: var(--color-bg);
+        color: var(--color-text);
+        transition: background 0.3s ease, color 0.3s ease;
+        -webkit-font-smoothing: antialiased;
+      }
+      input, textarea, select {
+        font-family: var(--font-body);
+        background: var(--color-surface);
+        color: var(--color-text);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.2s, background 0.3s, color 0.3s;
+      }
+      input:focus, textarea:focus {
+        border-color: var(--color-primary);
+        box-shadow: 0 0 0 3px rgba(122,155,90,0.15);
+      }
+      input::placeholder, textarea::placeholder { color: var(--color-text-muted); }
+      button { font-family: var(--font-body); cursor: pointer; }
+      button:active { transform: scale(0.97); }
+
+      /* ─── Logo blink animation ───────────────────── */
+      @keyframes blinkJ { 0%,100%{transform:scaleY(1)} 46%{transform:scaleY(1)} 50%{transform:scaleY(.08)} 54%{transform:scaleY(1)} }
+      @keyframes blinkA { 0%,100%{transform:scaleY(1)} 46%{transform:scaleY(1)} 50%{transform:scaleY(.08)} 54%{transform:scaleY(1)} }
+      .logo-dj { transform-origin: center center; animation: blinkJ 4s ease-in-out infinite; }
+      .logo-da { transform-origin: center center; animation: blinkA 4s ease-in-out .04s infinite; }
+
+      /* ─── Chat animations ────────────────────────── */
+      @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      .msg-in { animation: msgIn 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+      @keyframes dotPulse { 0%,100%{opacity:.3;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
+      .typing-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-muted); }
+
+      /* ─── Scrollbar ──────────────────────────────── */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
