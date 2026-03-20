@@ -1,9 +1,9 @@
+window.Rolecrft = window.Rolecrft || {};
+
+(function(ns){
 const { useEffect, useRef, useState } = React;
-import { runtimeConfig, validateRuntimeConfig } from './config.js';
-import { FUQ, OPENERS } from './data.js';
-import { callGroq, callLLM, callSearch, getSessionCost, trackCost } from './lib/api.js';
-import { dualScore, fmtSearch, parseFile, valCo, valJD, xJSON } from './lib/utils.js';
-import { Av, Btn, CharSelect, Dots, FitCard, Logo, Msg, PersonaPick } from './components/ui.jsx';
+const { runtimeConfig, validateRuntimeConfig, FUQ, OPENERS, callGroq, callLLM, callSearch, getSessionCost, trackCost, dualScore, fmtSearch, parseFile, valCo, valJD, xJSON, ui } = ns;
+const { Av, Btn, CharSelect, Dots, FitCard, Logo, Msg, PersonaPick } = ui;
 
 validateRuntimeConfig();
 const supabase = window.supabase.createClient(runtimeConfig.supabaseUrl, runtimeConfig.supabaseAnonKey);
@@ -33,3 +33,5 @@ function Convo({user,char,persona,onBack}){
 function App(){const[session,setSession]=useState(null);const[,setProfile]=useState(null);const[loading,setLoading]=useState(true);const[char,setChar]=useState(null);const[persona,setPersona]=useState(null);useEffect(()=>{supabase.auth.getSession().then(({data:{session}})=>{setSession(session);if(session)ld(session.user);else setLoading(false);});const{data:{subscription}}=supabase.auth.onAuthStateChange((_,s)=>{setSession(s);if(s)ld(s.user);else{setProfile(null);setLoading(false);}});return()=>subscription.unsubscribe();},[]);const ld=async(u)=>{const{data}=await supabase.from('users').select('*').eq('id',u.id).single();setProfile(data);setLoading(false);};if(loading)return <div style={{display:'flex',alignItems:'center',justifyContent:'center',minHeight:'100vh',gap:10}}><div style={{width:20,height:20,border:'3px solid var(--color-border)',borderTopColor:'var(--color-primary)',borderRadius:'50%',animation:'spin .8s linear infinite'}}/><span style={{color:'var(--color-text-muted)',fontSize:14}}>Loading...</span></div>;if(!session)return <Auth/>;if(char&&persona)return <Convo user={session.user} char={char} persona={persona} onBack={()=>{setChar(null);setPersona(null);}}/>;if(char)return <PersonaPick char={char} onPick={setPersona}/>;return <CharSelect onPick={setChar}/>;}
 
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+
+})(window.Rolecrft);
