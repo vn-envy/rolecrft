@@ -1,0 +1,13 @@
+window.Rolecrft = window.Rolecrft || {};
+
+(function(ns){
+  const GFB={'openai/gpt-oss-120b':'llama-3.3-70b-versatile','llama-3.1-8b-instant':'llama-3.3-70b-versatile'};
+  let sessionCost = 0;
+
+  ns.trackCost = function trackCost(value) { sessionCost += value || 0; };
+  ns.getSessionCost = function getSessionCost() { return sessionCost; };
+
+  ns.callLLM = async function callLLM(o){const r=await fetch('/.netlify/functions/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:o.system||'',messages:o.messages,temperature:o.temperature||0.4,max_tokens:o.max_tokens||200,model:o.model||'haiku'})});const d=await r.json();if(!r.ok)throw new Error(d.error||'err');const t=(d.content||[]).find(c=>c.type==='text');return{text:t?t.text:'',cost:d.cost||{}};};
+  ns.callSearch = async function callSearch(q){try{const r=await fetch('/.netlify/functions/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({queries:q})});const d=await r.json();return d.searchAvailable?d.results:null;}catch{return null;}};
+  ns.callGroq = async function callGroq(p,o={}){const{temperature:tp=0.2,max_tokens:mt=4096,model:md='openai/gpt-oss-120b',retries:rt=2,_fb=false}=o;const fp=p+'\nOutput ONLY valid JSON.';for(let i=0;i<=rt;i++){const c=new AbortController();const t=setTimeout(()=>c.abort(),25000);try{const r=await fetch('/.netlify/functions/transform',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:fp,temperature:tp,max_tokens:mt,model:md}),signal:c.signal});clearTimeout(t);const tx=await r.text();let d;try{d=JSON.parse(tx)}catch{d={error:tx}};if(!r.ok)throw new Error(d?.error||'err');const f=(d.content||[]).find(c=>c.type==='text');return f?f.text:'';}catch(e){clearTimeout(t);if(i===rt){const fb=GFB[md];if(fb&&!_fb)return ns.callGroq(p,{...o,model:fb,retries:1,_fb:true});throw e;}await new Promise(r=>setTimeout(r,1500*(i+1)));}}};
+})(window.Rolecrft);
